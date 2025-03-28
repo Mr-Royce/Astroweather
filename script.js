@@ -51,14 +51,14 @@ async function getForecast() {
                 const temp = ((hour.main.temp - 273.15) * 9/5 + 32 + (sevenTimerHour.temp2m * 9/5 + 32)) / 2; // °F
                 const windSpeed = ((hour.wind.speed + sevenTimerHour.wind10m.speed) * 2.237) / 2; // MPH
                 const humidity = (hour.main.humidity + sevenTimerHour.rh2m) / 2;
-                const seeing = sevenTimerHour.seeing;
+                const seeing = mapSeeing(sevenTimerHour.seeing); // Updated to descriptive scale
                 const transparency = mapTransparency(sevenTimerHour.transparency);
 
                 hourlyHTML += `
                     <div class="hourly">
                         <strong>${time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}:</strong><br>
                         Cloud: ${cloudCover.toFixed(1)}%, Temp: ${temp.toFixed(1)}°F, Wind: ${windSpeed.toFixed(1)} MPH<br>
-                        Humidity: ${humidity.toFixed(1)}%, Seeing: ${seeing}", Transparency: ${transparency}
+                        Humidity: ${humidity.toFixed(1)}%, Seeing: ${seeing}, Transparency: ${transparency}
                     </div>
                 `;
             });
@@ -113,6 +113,15 @@ async function fetchOpenWeather(lat, lon) {
     const response = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}`);
     if (!response.ok) throw new Error('OpenWeatherMap current fetch failed');
     return await response.json();
+}
+
+// Map seeing to descriptive scale
+function mapSeeing(value) {
+    if (value < 1) return 'Excellent';
+    if (value <= 2) return 'Good';
+    if (value <= 3) return 'Average';
+    if (value <= 5) return 'Poor';
+    return 'Very Poor';
 }
 
 // Map transparency
