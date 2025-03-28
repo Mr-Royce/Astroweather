@@ -33,12 +33,13 @@ async function getForecast(useGeolocation = false) {
         }
 
         // Fetch all data
-        const [currentWeather, sevenTimerData, openWeatherData, twilightData, meteosourceData] = await Promise.all([
+        const [currentWeather, sevenTimerData, openWeatherData, twilightData, meteosourceData, meteosourceAstro] = await Promise.all([
             fetchOpenWeather(lat, lon),
             fetch7Timer(lat, lon),
             fetchOpenWeatherForecast(lat, lon),
             fetchSunriseSunset(lat, lon),
-            fetchMeteosource(lat, lon)
+            fetchMeteosource(lat, lon),
+            fetchMeteosourceAstronomy(lat, lon)
         ]);
 
         const sunsetHour = new Date(currentWeather.sys.sunset * 1000).getHours();
@@ -54,20 +55,21 @@ async function getForecast(useGeolocation = false) {
             const astroTwilightTime = twilightData[day]?.results?.astronomical_twilight_end 
                 ? new Date(twilightData[day].results.astronomical_twilight_end) 
                 : null;
-            const moonPhase = meteosourceData.daily.data[day]?.moon_phase || 'Unknown';
+            const moonPhase = meteosourceAstro.data[day]?.moon_phase || 'Unknown';
 
-            const sevenTimerDay = sevenTimerData.dataseries.slice(day * 8, (day + 1) * 8);
-            const openWeatherDay = openWeatherData.list.slice(day * 8, (day + 1) * 8);
+            const sevenTimerDay = sevenTimerData.dataseries.slice(day * 8, Math.min((day + 1) * 8, sevenTimerData.dataseries.length));
+            const openWeatherDay = openWeatherData.list.slice(day * 8, Math.min((day + 1) * 8, openWeatherData.list.length));
             const meteosourceDay = meteosourceData.hourly.data.slice(day * 24, Math.min((day + 1) * 24, meteosourceData.hourly.data.length));
 
-            // Daily summary
-            const temps = [
-                ...openWeatherDay.map(hour => (hour.main.temp - 273.15) * 9/5 + 32),
-                ...sevenTimerDay.map(hour => hour.temp2m * 9/5 + 32),
-                ...(meteosourceDay.length ? meteosourceDay.map(hour => hour.temperature * 9/5 + 32) : [])
-            ].filter(t => !isNaN(t));
-            const highTemp = temps.length ? Math.max(...temps) : NaN;
-            const lowTemp = temps.length ? Math.min(...temps) : NaN;
+            // Hourly averages for the day
+            const hourlyTemps = openWeatherDay.map((hour, i) => {
+                const sevenTimerHour = sevenTimerDay[i] || sevenTimerDay[sevenTimerDay.length - 1];
+                const msHour = meteosourceDay[i * 3] || meteosourceDay[meteosourceDay.length - 1] || {};
+                return [(hour.main.temp - 273.15) * 9/5 + 32, sevenTimerHour.temp2m * 9/5 + 32, msHour.temperature * 9/5 + 32]
+                    .filter(t => !isNaN(t)).reduce((a, b) => a + b, 0) / 3;
+            }).filter(t => !isNaN(t));
+            const highTemp = hourlyTemps.length ? Math.max(...hourlyTemps) : NaN;
+            const lowTemp = hourlyTemps.length ? Math.min(...hourlyTemps) : NaN;
 
             const eveningHours = openWeatherDay.filter(hour => {
                 const time = new Date(hour.dt * 1000).getHours();
@@ -91,8 +93,7 @@ async function getForecast(useGeolocation = false) {
                 if (time.getHours() < sunsetHour && day === 0) return;
 
                 const sevenTimerHour = sevenTimerDay[i] || sevenTimerDay[sevenTimerDay.length - 1];
-                const msHourIndex = Math.floor((time - new Date().setHours(0, 0, 0, 0)) / (1000 * 60 * 60)) + i;
-                const msHour = meteosourceDay[msHourIndex] || meteosourceDay[meteosourceDay.length - 1] || {};
+                const msHour = meteosourceDay[i * 3] || meteosourceDay[meteosourceDay.length - 1] || {};
 
                 const cloudCover = [hour.clouds.all, sevenTimerHour.cloudcover * 10, msHour.cloud_cover?.total || 0]
                     .filter(c => c !== undefined).reduce((a, b) => a + b, 0) / 3;
@@ -188,8 +189,21 @@ function fetchSunriseSunset(lat, lon) {
 }
 
 function fetchMeteosource(lat, lon) {
-    return fetch(`https://www.meteosource.com/api/v1/free/point?lat=${lat}&lon=${lon}&sections=current,hourly,daily&units=metric&key=${METEOSOURCE_API_KEY}`)
+    return fetch(`https://www.meteosource.com/api/v1/free/point?lat=${lat}&lon=${lon}§ions=current,hourly,daily&units=metric&key=${METEOSOURCE_API_KEY}`)
         .then(res => { if (!res.ok) throw new Error('Meteosource fetch failed'); return res.json(); });
+}
+
+function fetchMeteosourceAstronomy(lat, lon) {
+    const today = new Date();
+    const dates = [0, 1, 2].map(day => {
+        const d = new Date(today);
+        d.setDate(today.getDate() + day);
+        return d.toISOString().split('T')[0];
+    });
+    return Promise.all(dates.map(date => 
+        fetch(`https://www.meteosource.com/api/v1/free/astronomy?lat=${lat}&lon=${lon}&date=${date}&key=${METEOSOURCE_API_KEY}`)
+            .then(res => res.json())
+    ));
 }
 
 function mapSeeing(value) {
