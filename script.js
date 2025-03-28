@@ -89,7 +89,7 @@ async function getForecast(useGeolocation = false) {
             }
 
             const moonPhase = meteosourceData?.daily?.data[day]?.moon_phase || calculateMoonPhase(date);
-            console.log(`Day ${day} Moon Phase: ${moonPhase}`);
+            console.log(`Day ${day} Moon Phase: ${moonPhase} (Phase: ${calculateMoonPhaseRaw(date).toFixed(4)})`);
             const moonIcon = getMoonPhaseIcon(moonPhase);
 
             const sevenTimerDay = sevenTimerData.dataseries.slice(day * 8, Math.min((day + 1) * 8, sevenTimerData.dataseries.length));
@@ -238,22 +238,31 @@ function fetchMeteosource(lat, lon) {
         .then(res => { if (!res.ok) throw new Error('Meteosource fetch failed'); return res.json(); });
 }
 
-// Improved moon phase calculator
-function calculateMoonPhase(date) {
-    const J2000 = 2451545.0; // J2000 epoch (2000-01-01 12:00 UTC)
-    const daysSinceJ2000 = (date.getTime() / 86400000) + 2440587.5 - J2000; // Julian Day
-    const lunarCycle = 29.53058867; // Synodic month in days
-    const phase = (daysSinceJ2000 % lunarCycle) / lunarCycle; // Normalized phase (0 to 1)
-    const adjustedPhase = phase < 0 ? phase + 1 : phase; // Handle negative values
+// Raw phase calculator for debugging
+function calculateMoonPhaseRaw(date) {
+    const J2000 = 2451545.0;
+    const daysSinceJ2000 = (date.getTime() / 86400000) + 2440587.5 - J2000;
+    const lunarCycle = 29.53058867;
+    const phase = (daysSinceJ2000 % lunarCycle) / lunarCycle;
+    return phase < 0 ? phase + 1 : phase;
+}
 
-    // Adjust thresholds based on lunar cycle (0 = New Moon, 0.25 = First Quarter, etc.)
-    if (adjustedPhase < 0.02 || adjustedPhase >= 0.98) return 'New Moon';
-    if (adjustedPhase < 0.23) return 'Waxing Crescent';
-    if (adjustedPhase < 0.27) return 'First Quarter';
-    if (adjustedPhase < 0.48) return 'Waxing Gibbous';
-    if (adjustedPhase < 0.52) return 'Full Moon';
-    if (adjustedPhase < 0.73) return 'Waning Gibbous';
-    if (adjustedPhase < 0.77) return 'Last Quarter';
+// Moon phase calculator
+function calculateMoonPhase(date) {
+    const J2000 = 2451545.0;
+    const daysSinceJ2000 = (date.getTime() / 86400000) + 2440587.5 - J2000;
+    const lunarCycle = 29.53058867;
+    const phase = (daysSinceJ2000 % lunarCycle) / lunarCycle;
+    const adjustedPhase = phase < 0 ? phase + 1 : phase;
+
+    // Tighter thresholds aligned with 2025 lunar cycle
+    if (adjustedPhase <= 0.05 || adjustedPhase > 0.95) return 'New Moon';
+    if (adjustedPhase <= 0.20) return 'Waxing Crescent';
+    if (adjustedPhase <= 0.30) return 'First Quarter';
+    if (adjustedPhase <= 0.45) return 'Waxing Gibbous';
+    if (adjustedPhase <= 0.55) return 'Full Moon';
+    if (adjustedPhase <= 0.70) return 'Waning Gibbous';
+    if (adjustedPhase <= 0.80) return 'Last Quarter';
     return 'Waning Crescent';
 }
 
