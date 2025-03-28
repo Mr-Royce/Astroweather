@@ -27,14 +27,15 @@ async function getForecast(useGeolocation = false) {
             }
         }
 
-        // Fetch current weather for sunset time (used as a base)
+        // Fetch current weather for sunset hour (fallback)
         const currentWeather = await fetchOpenWeather(lat, lon);
         const sunsetHour = new Date(currentWeather.sys.sunset * 1000).getHours();
 
         // Fetch forecast data
-        const [sevenTimerData, openWeatherData] = await Promise.all([
+        const [sevenTimerData, openWeatherData, twilightData] = await Promise.all([
             fetch7Timer(lat, lon),
-            fetchOpenWeatherForecast(lat, lon)
+            fetchOpenWeatherForecast(lat, lon),
+            fetchSunriseSunset(lat, lon)
         ]);
 
         // Process 3-day forecast
@@ -44,8 +45,8 @@ async function getForecast(useGeolocation = false) {
             date.setDate(date.getDate() + day);
             const dateStr = date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
 
-            // Calculate astronomical twilight for this specific day
-            const astroTwilightTime = calculateAstroTwilight(lat, lon, date, currentWeather.sys.sunset * 1000 + day * 24 * 60 * 60 * 1000);
+            // Get astronomical twilight for this day
+            const astroTwilightTime = new Date(twilightData.results[day].astronomical_twilight_end);
 
             const sevenTimerDay = sevenTimerData.dataseries.slice(day * 8, (day + 1) * 8);
             const openWeatherDay = openWeatherData.list.slice(day * 8, (day + 1) * 8);
@@ -65,7 +66,7 @@ async function getForecast(useGeolocation = false) {
             );
             const avgEveningCloudCover = eveningClouds.length ? eveningClouds.reduce((a, b) => a + b, 0) / eveningClouds.length : 0;
 
-            // Hourly forecast
+            // Hourly forecast with color coding
             let hourlyHTML = '';
             openWeatherDay.forEach((hour, i) => {
                 const time = new Date(hour.dt * 1000);
@@ -79,11 +80,15 @@ async function getForecast(useGeolocation = false) {
                 const seeing = mapSeeing(sevenTimerHour.seeing);
                 const transparency = cloudCover > 80 ? 'Cloudy' : mapTransparency(sevenTimerHour.transparency);
 
+                const cloudClass = cloudCover < 30 ? 'cloud-good' : cloudCover <= 70 ? 'cloud-avg' : 'cloud-poor';
+                const seeingClass = ['Excellent', 'Good'].includes(seeing) ? 'seeing-good' : seeing === 'Average' ? 'seeing-avg' : 'seeing-poor';
+                const transClass = ['Excellent', 'Good'].includes(transparency) ? 'trans-good' : ['Average', 'Below Avg'].includes(transparency) ? 'trans-avg' : 'trans-poor';
+
                 hourlyHTML += `
                     <div class="hourly">
                         <strong>${time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}:</strong><br>
-                        Cloud: ${cloudCover.toFixed(1)}%, Temp: ${temp.toFixed(1)}°F, Wind: ${windSpeed.toFixed(1)} MPH<br>
-                        Humidity: ${humidity.toFixed(1)}%, Seeing: ${seeing}, Transparency: ${transparency}
+                        <span class="${cloudClass}">Cloud: ${cloudCover.toFixed(1)}%</span>, Temp: ${temp.toFixed(1)}°F, Wind: ${windSpeed.toFixed(1)} MPH<br>
+                        Humidity: ${humidity.toFixed(1)}%, <span class="${seeingClass}">Seeing: ${seeing}</span>, <span class="${transClass}">Transparency: ${transparency}</span>
                     </div>
                 `;
             });
@@ -140,27 +145,17 @@ function fetchOpenWeather(lat, lon) {
         .then(res => { if (!res.ok) throw new Error('OpenWeatherMap current fetch failed'); return res.json(); });
 }
 
-// Calculate astronomical twilight
-function calculateAstroTwilight(lat, lon, date, sunsetTime) {
-    const J0 = 2451545.0; // J2000 epoch
-    const n = Math.floor((date - new Date('2000-01-01T12:00:00Z')) / (1000 * 60 * 60 * 24)); // Days since J2000
-    const L = 280.460 + 0.9856474 * n; // Mean longitude
-    const g = 357.528 + 0.9856003 * n; // Mean anomaly
-    const lambda = (L + 1.915 * Math.sin(g * Math.PI / 180) + 0.020 * Math.sin(2 * g * Math.PI / 180)) % 360; // Ecliptic longitude
-    const epsilon = 23.439 - 0.0000004 * n; // Obliquity
-    const delta = Math.asin(Math.sin(epsilon * Math.PI / 180) * Math.sin(lambda * Math.PI / 180)) * 180 / Math.PI; // Declination
-
-    const H0 = -18; // Astronomical twilight angle
-    const cosH = (Math.cos(H0 * Math.PI / 180) - Math.sin(lat * Math.PI / 180) * Math.sin(delta * Math.PI / 180)) / 
-                  (Math.cos(lat * Math.PI / 180) * Math.cos(delta * Math.PI / 180));
-    
-    if (cosH < -1 || cosH > 1 || isNaN(cosH)) {
-        return new Date(sunsetTime + 90 * 60 * 1000); // Fallback: 90 minutes after sunset
-    }
-
-    const H = Math.acos(cosH) * 180 / Math.PI; // Hour angle
-    const twilightMinutes = (H / 15) * 60; // Convert hour angle to minutes
-    return new Date(sunsetTime + twilightMinutes * 60 * 1000);
+function fetchSunriseSunset(lat, lon) {
+    const today = new Date();
+    const dates = [0, 1, 2].map(day => {
+        const d = new Date(today);
+        d.setDate(today.getDate() + day);
+        return d.toISOString().split('T')[0];
+    });
+    return Promise.all(dates.map(date => 
+        fetch(`https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lon}&date=${date}&formatted=0`)
+            .then(res => res.json())
+    )).then(results => ({ results }));
 }
 
 function mapSeeing(value) {
