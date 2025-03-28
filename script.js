@@ -50,9 +50,15 @@ async function getForecast(useGeolocation = false) {
             date.setDate(date.getDate() + day);
             const dateStr = date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
 
-            // Astro twilight and moon phase
+            // Astro twilight, moonrise, moonset, and moon phase
             const astroTwilightTime = twilightData[day]?.results?.astronomical_twilight_end 
                 ? new Date(twilightData[day].results.astronomical_twilight_end) 
+                : null;
+            const moonriseTime = twilightData[day]?.results?.moonrise 
+                ? new Date(twilightData[day].results.moonrise) 
+                : null;
+            const moonsetTime = twilightData[day]?.results?.moonset 
+                ? new Date(twilightData[day].results.moonset) 
                 : null;
             const moonPhase = meteosourceData?.daily?.data[day]?.moon_phase || calculateMoonPhase(date);
             const moonIcon = getMoonPhaseIcon(moonPhase);
@@ -133,7 +139,17 @@ async function getForecast(useGeolocation = false) {
                                 ? astroTwilightTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) 
                                 : 'Not available'
                         }<br>
-                        <strong>Moon Phase:</strong> ${moonIcon} ${moonPhase}
+                        <strong>Moon Phase:</strong> ${moonIcon} ${moonPhase}<br>
+                        <strong>Moonrise:</strong> ${
+                            moonriseTime instanceof Date && !isNaN(moonriseTime) 
+                                ? moonriseTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) 
+                                : 'Not available'
+                        }<br>
+                        <strong>Moonset:</strong> ${
+                            moonsetTime instanceof Date && !isNaN(moonsetTime) 
+                                ? moonsetTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) 
+                                : 'Not available'
+                        }
                     </div>
                     ${hourlyHTML}
                 </div>
@@ -186,11 +202,6 @@ function fetchSunriseSunset(lat, lon) {
         fetch(`https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lon}&date=${date}&formatted=0`)
             .then(res => res.json())
     ));
-}
-
-function fetchMeteosource(lat, lon) {
-    return fetch(`https://www.meteosource.com/api/v1/free/point?lat=${lat}&lon=${lon}&sections=current,hourly,daily&units=metric&key=${METEOSOURCE_API_KEY}`)
-        .then(res => { if (!res.ok) throw new Error('Meteosource fetch failed'); return res.json(); });
 }
 
 // Simple moon phase calculator
