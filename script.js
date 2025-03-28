@@ -1,17 +1,16 @@
 const OPENWEATHER_API_KEY = '3e87f27f9ac9b7d9fb27c6034e561eb4';
 const METEOSOURCE_API_KEY = '1c42o0y7eq4oy8vcjylneurl68woiavvkgkbg3j4';
 
-// SunCalc-like moonrise/moonset calculator (simplified)
+// Simplified moonrise/moonset calculator
 function getMoonTimes(date, lat, lon) {
     const J2000 = 2451545.0;
     const daysSinceJ2000 = (date.getTime() / 86400000) - (new Date('2000-01-01T12:00:00Z').getTime() / 86400000);
     const lunarCycle = 29.53058867;
     const phaseAngle = (daysSinceJ2000 % lunarCycle) / lunarCycle * 360;
 
-    // Rough approximation of moonrise/moonset (simplified from SunCalc)
-    const lw = -lon * Math.PI / 180; // longitude in radians
-    const phi = lat * Math.PI / 180; // latitude in radians
-    const H = Math.acos(-Math.tan(phi) * Math.tan(0.074 * Math.cos(phaseAngle * Math.PI / 180))); // hour angle
+    const lw = -lon * Math.PI / 180;
+    const phi = lat * Math.PI / 180;
+    const H = Math.acos(-Math.tan(phi) * Math.tan(0.074 * Math.cos(phaseAngle * Math.PI / 180)));
     const rise = 12 - H * 12 / Math.PI + lw * 12 / Math.PI;
     const set = 12 + H * 12 / Math.PI + lw * 12 / Math.PI;
 
@@ -63,8 +62,6 @@ async function getForecast(useGeolocation = false) {
             fetchMeteosource(lat, lon).catch(err => { console.warn('Meteosource failed:', err); return null; })
         ]);
 
-        console.log('Twilight Data:', twilightData); // Debug log
-
         const sunsetHour = new Date(currentWeather.sys.sunset * 1000).getHours();
 
         // Process 3-day forecast
@@ -85,7 +82,6 @@ async function getForecast(useGeolocation = false) {
                 ? new Date(twilightData[day].results.moonset) 
                 : null;
             
-            // Fallback to local calculation if API data is missing
             if (!moonriseTime || !moonsetTime) {
                 const { moonrise, moonset } = getMoonTimes(date, lat, lon);
                 moonriseTime = moonriseTime || moonrise;
@@ -93,6 +89,7 @@ async function getForecast(useGeolocation = false) {
             }
 
             const moonPhase = meteosourceData?.daily?.data[day]?.moon_phase || calculateMoonPhase(date);
+            console.log(`Day ${day} Moon Phase: ${moonPhase}`); // Debug log
             const moonIcon = getMoonPhaseIcon(moonPhase);
 
             const sevenTimerDay = sevenTimerData.dataseries.slice(day * 8, Math.min((day + 1) * 8, sevenTimerData.dataseries.length));
@@ -237,11 +234,11 @@ function fetchSunriseSunset(lat, lon) {
 }
 
 function fetchMeteosource(lat, lon) {
-    return fetch(`https://www.meteosource.com/api/v1/free/point?lat=${lat}&lon=${lon}§ions=current,hourly,daily&units=metric&key=${METEOSOURCE_API_KEY}`)
+    return fetch(`https://www.meteosource.com/api/v1/free/point?lat=${lat}&lon=${lon}&sections=current,hourly,daily&units=metric&key=${METEOSOURCE_API_KEY}`)
         .then(res => { if (!res.ok) throw new Error('Meteosource fetch failed'); return res.json(); });
 }
 
-// Simple moon phase calculator
+// Moon phase calculator
 function calculateMoonPhase(date) {
     const J2000 = 2451545.0;
     const daysSinceJ2000 = (date.getTime() / 86400000) - (new Date('2000-01-01T12:00:00Z').getTime() / 86400000);
