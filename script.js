@@ -41,6 +41,8 @@ async function getForecast(useGeolocation = false) {
             fetchMeteosource(lat, lon).catch(err => { console.warn('Meteosource failed:', err); return null; })
         ]);
 
+        console.log('Twilight Data:', twilightData); // Debug log
+
         const sunsetHour = new Date(currentWeather.sys.sunset * 1000).getHours();
 
         // Process 3-day forecast
@@ -54,10 +56,10 @@ async function getForecast(useGeolocation = false) {
             const astroTwilightTime = twilightData[day]?.results?.astronomical_twilight_end 
                 ? new Date(twilightData[day].results.astronomical_twilight_end) 
                 : null;
-            const moonriseTime = twilightData[day]?.results?.moonrise 
+            const moonriseTime = twilightData[day]?.results?.moonrise && twilightData[day].results.moonrise !== 'N/A'
                 ? new Date(twilightData[day].results.moonrise) 
                 : null;
-            const moonsetTime = twilightData[day]?.results?.moonset 
+            const moonsetTime = twilightData[day]?.results?.moonset && twilightData[day].results.moonset !== 'N/A'
                 ? new Date(twilightData[day].results.moonset) 
                 : null;
             const moonPhase = meteosourceData?.daily?.data[day]?.moon_phase || calculateMoonPhase(date);
@@ -225,28 +227,28 @@ function calculateMoonPhase(date) {
     return 'Last Quarter';
 }
 
-// Moon phase icons (inline SVGs)
+// Moon phase icons (darker, larger SVGs)
 function getMoonPhaseIcon(phase) {
-    const size = 'width="16" height="16"';
+    const size = 'width="24" height="24"'; // Increased from 16x16 to 24x24
     switch (phase) {
         case 'New Moon':
-            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#333"/></svg>`;
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#555" stroke="#000" stroke-width="1"/></svg>`;
         case 'Waxing Crescent':
-            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#333"/><path d="M12 2a10 10 0 0 0 0 20c-2.5 0-4.5-2-4.5-5s2-5 4.5-5z" fill="#fff"/></svg>`;
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#555" stroke="#000" stroke-width="1"/><path d="M12 2a10 10 0 0 0 0 20c-2.5 0-4.5-2-4.5-5s2-5 4.5-5z" fill="#ddd"/></svg>`;
         case 'First Quarter':
-            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#333"/><path d="M12 2v20a10 10 0 0 0 0-20z" fill="#fff"/></svg>`;
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#555" stroke="#000" stroke-width="1"/><path d="M12 2v20a10 10 0 0 0 0-20z" fill="#ddd"/></svg>`;
         case 'Waxing Gibbous':
-            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#333"/><path d="M12 2a10 10 0 0 1 0 20c2.5 0 4.5-2 4.5-5s-2-5-4.5-5z" fill="#fff"/></svg>`;
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#555" stroke="#000" stroke-width="1"/><path d="M12 2a10 10 0 0 1 0 20c2.5 0 4.5-2 4.5-5s-2-5-4.5-5z" fill="#ddd"/></svg>`;
         case 'Full Moon':
-            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#fff"/></svg>`;
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#ddd" stroke="#000" stroke-width="1"/></svg>`;
         case 'Waning Gibbous':
-            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#333"/><path d="M12 2a10 10 0 0 0 0 20c-2.5 0-4.5-2-4.5-5s2-5 4.5-5z" fill="#fff"/></svg>`;
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#555" stroke="#000" stroke-width="1"/><path d="M12 2a10 10 0 0 0 0 20c-2.5 0-4.5-2-4.5-5s2-5 4.5-5z" fill="#ddd"/></svg>`;
         case 'Last Quarter':
-            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#333"/><path d="M12 2v20a10 10 0 0 1 0-20z" fill="#fff"/></svg>`;
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#555" stroke="#000" stroke-width="1"/><path d="M12 2v20a10 10 0 0 1 0-20z" fill="#ddd"/></svg>`;
         case 'Waning Crescent':
-            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#333"/><path d="M12 2a10 10 0 0 1 0 20c2.5 0 4.5-2 4.5-5s-2-5-4.5-5z" fill="#fff"/></svg>`;
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#555" stroke="#000" stroke-width="1"/><path d="M12 2a10 10 0 0 1 0 20c2.5 0 4.5-2 4.5-5s-2-5-4.5-5z" fill="#ddd"/></svg>`;
         default:
-            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#ccc"/></svg>`;
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#888" stroke="#000" stroke-width="1"/></svg>`;
     }
 }
 
