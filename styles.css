@@ -1,15 +1,63 @@
 body {
     font-family: Arial, sans-serif;
-    text-align: center;
+    background-color: #f0f2f5;
+    margin: 0;
     padding: 20px;
 }
-#forecast {
-    margin-top: 20px;
-    text-align: left;
-    max-width: 600px;
-    margin-left: auto;
-    margin-right: auto;
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+    text-align: center;
 }
-#forecast p {
+h1 {
+    color: #333;
+}
+.input-group {
+    margin: 20px 0;
+}
+input {
+    padding: 10px;
+    font-size: 16px;
+    width: 250px;
+    border: 1px solid #ccc;
+    border-radius: 5px 0 0 5px;
+}
+button {
+    padding: 10px 20px;
+    font-size: 16px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 0 5px 5px 0;
+    cursor: pointer;
+}
+button:hover {
+    background-color: #0056b3;
+}
+#forecast {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: center;
+}
+.day-card {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    padding: 15px;
+    width: 250px;
+    text-align: left;
+}
+.day-card h3 {
+    margin: 0 0 10px;
+    color: #007bff;
+}
+.day-card p {
     margin: 5px 0;
+    font-size: 14px;
+}
+.hourly {
+    margin-top: 10px;
+    border-top: 1px solid #eee;
+    padding-top: 10px;
 }
