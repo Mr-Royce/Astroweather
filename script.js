@@ -27,16 +27,16 @@ async function getForecast(useGeolocation = false) {
             }
         }
 
-        // Fetch data
+        // Fetch current weather first for sunset time
+        const currentWeather = await fetchOpenWeather(lat, lon);
+        const sunsetHour = new Date(currentWeather.sys.sunset * 1000).getHours();
+        const astroTwilightTime = calculateAstroTwilight(lat, lon, new Date(), currentWeather.sys.sunset * 1000);
+
+        // Fetch forecast data
         const [sevenTimerData, openWeatherData] = await Promise.all([
             fetch7Timer(lat, lon),
             fetchOpenWeatherForecast(lat, lon)
         ]);
-
-        // Get sunset and calculate astronomical twilight
-        const currentWeather = await fetchOpenWeather(lat, lon);
-        const sunsetHour = new Date(currentWeather.sys.sunset * 1000).getHours();
-        const astroTwilightTime = calculateAstroTwilight(lat, lon, new Date());
 
         // Process 3-day forecast
         let forecastHTML = `<p><strong>Astronomical Twilight (Dark Enough):</strong> ${astroTwilightTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>`;
@@ -105,7 +105,7 @@ async function getForecast(useGeolocation = false) {
     }
 }
 
-// Geolocation fallback error
+// Fetch functions
 function geocodeCity(city) {
     return fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${city}&limit=1&appid=${API_KEY}`)
         .then(res => { if (!res.ok) throw new Error('Geocoding failed'); return res.json(); })
@@ -133,15 +133,14 @@ function fetchOpenWeather(lat, lon) {
         .then(res => { if (!res.ok) throw new Error('OpenWeatherMap current fetch failed'); return res.json(); });
 }
 
-// Calculate astronomical twilight (sun 18° below horizon)
-function calculateAstroTwilight(lat, lon, date) {
+// Calculate astronomical twilight
+function calculateAstroTwilight(lat, lon, date, sunsetTime) {
     const J0 = 2451545.0; // J2000 epoch
     const n = Math.floor((date - new Date('2000-01-01T12:00:00Z')) / (1000 * 60 * 60 * 24)); // Days since J2000
     const L = 280.460 + 0.9856474 * n; // Mean longitude
     const g = 357.528 + 0.9856003 * n; // Mean anomaly
     const lambda = L + 1.915 * Math.sin(g * Math.PI / 180) + 0.020 * Math.sin(2 * g * Math.PI / 180); // Ecliptic longitude
     const epsilon = 23.439 - 0.0000004 * n; // Obliquity
-    const alpha = Math.atan2(Math.cos(epsilon * Math.PI / 180) * Math.sin(lambda * Math.PI / 180), Math.cos(lambda * Math.PI / 180)) * 180 / Math.PI; // Right ascension
     const delta = Math.asin(Math.sin(epsilon * Math.PI / 180) * Math.sin(lambda * Math.PI / 180)) * 180 / Math.PI; // Declination
 
     const H0 = -18; // Astronomical twilight angle
@@ -149,10 +148,8 @@ function calculateAstroTwilight(lat, lon, date) {
                   (Math.cos(lat * Math.PI / 180) * Math.cos(delta * Math.PI / 180));
     const H = Math.acos(cosH) * 180 / Math.PI; // Hour angle
 
-    const lst = (100.46 + 0.985647 * n + lon + 15 * (date.getUTCHours() + date.getUTCMinutes() / 60)) % 360; // Local sidereal time
-    const sunsetApprox = new Date(currentWeather.sys.sunset * 1000);
     const twilightMinutes = (H / 15) * 60; // Convert hour angle to minutes
-    return new Date(sunsetApprox.getTime() + twilightMinutes * 60 * 1000);
+    return new Date(sunsetTime + twilightMinutes * 60 * 1000);
 }
 
 function mapSeeing(value) {
