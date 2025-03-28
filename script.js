@@ -27,7 +27,7 @@ async function getForecast(useGeolocation = false) {
             }
         }
 
-        // Fetch current weather first for sunset time
+        // Fetch current weather for sunset time
         const currentWeather = await fetchOpenWeather(lat, lon);
         const sunsetHour = new Date(currentWeather.sys.sunset * 1000).getHours();
         const astroTwilightTime = calculateAstroTwilight(lat, lon, new Date(), currentWeather.sys.sunset * 1000);
@@ -39,7 +39,11 @@ async function getForecast(useGeolocation = false) {
         ]);
 
         // Process 3-day forecast
-        let forecastHTML = `<p><strong>Astronomical Twilight (Dark Enough):</strong> ${astroTwilightTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>`;
+        let forecastHTML = `<p><strong>Astronomical Twilight (Dark Enough):</strong> ${
+            astroTwilightTime instanceof Date && !isNaN(astroTwilightTime) 
+                ? astroTwilightTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) 
+                : 'Not available'
+        }</p>`;
         for (let day = 0; day < 3; day++) {
             const date = new Date();
             date.setDate(date.getDate() + day);
@@ -139,15 +143,20 @@ function calculateAstroTwilight(lat, lon, date, sunsetTime) {
     const n = Math.floor((date - new Date('2000-01-01T12:00:00Z')) / (1000 * 60 * 60 * 24)); // Days since J2000
     const L = 280.460 + 0.9856474 * n; // Mean longitude
     const g = 357.528 + 0.9856003 * n; // Mean anomaly
-    const lambda = L + 1.915 * Math.sin(g * Math.PI / 180) + 0.020 * Math.sin(2 * g * Math.PI / 180); // Ecliptic longitude
+    const lambda = (L + 1.915 * Math.sin(g * Math.PI / 180) + 0.020 * Math.sin(2 * g * Math.PI / 180)) % 360; // Ecliptic longitude
     const epsilon = 23.439 - 0.0000004 * n; // Obliquity
     const delta = Math.asin(Math.sin(epsilon * Math.PI / 180) * Math.sin(lambda * Math.PI / 180)) * 180 / Math.PI; // Declination
 
     const H0 = -18; // Astronomical twilight angle
     const cosH = (Math.cos(H0 * Math.PI / 180) - Math.sin(lat * Math.PI / 180) * Math.sin(delta * Math.PI / 180)) / 
                   (Math.cos(lat * Math.PI / 180) * Math.cos(delta * Math.PI / 180));
-    const H = Math.acos(cosH) * 180 / Math.PI; // Hour angle
+    
+    // Handle invalid cosH (outside [-1, 1])
+    if (cosH < -1 || cosH > 1 || isNaN(cosH)) {
+        return new Date(sunsetTime + 90 * 60 * 1000); // Fallback: 90 minutes after sunset
+    }
 
+    const H = Math.acos(cosH) * 180 / Math.PI; // Hour angle
     const twilightMinutes = (H / 15) * 60; // Convert hour angle to minutes
     return new Date(sunsetTime + twilightMinutes * 60 * 1000);
 }
