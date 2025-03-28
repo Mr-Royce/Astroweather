@@ -41,8 +41,6 @@ async function getForecast(useGeolocation = false) {
             fetchMeteosource(lat, lon).catch(err => { console.warn('Meteosource failed:', err); return null; })
         ]);
 
-        console.log('Meteosource Response:', meteosourceData?.daily?.data); // Debug log
-
         const sunsetHour = new Date(currentWeather.sys.sunset * 1000).getHours();
 
         // Process 3-day forecast
@@ -57,6 +55,7 @@ async function getForecast(useGeolocation = false) {
                 ? new Date(twilightData[day].results.astronomical_twilight_end) 
                 : null;
             const moonPhase = meteosourceData?.daily?.data[day]?.moon_phase || calculateMoonPhase(date);
+            const moonIcon = getMoonPhaseIcon(moonPhase);
 
             const sevenTimerDay = sevenTimerData.dataseries.slice(day * 8, Math.min((day + 1) * 8, sevenTimerData.dataseries.length));
             const openWeatherDay = openWeatherData.list.slice(day * 8, Math.min((day + 1) * 8, openWeatherData.list.length));
@@ -134,7 +133,7 @@ async function getForecast(useGeolocation = false) {
                                 ? astroTwilightTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) 
                                 : 'Not available'
                         }<br>
-                        <strong>Moon Phase:</strong> ${moonPhase}
+                        <strong>Moon Phase:</strong> ${moonIcon} ${moonPhase}
                     </div>
                     ${hourlyHTML}
                 </div>
@@ -208,6 +207,31 @@ function calculateMoonPhase(date) {
     if (phase < 0.75) return 'Full Moon';
     if (phase < 0.97) return 'Waning Gibbous';
     return 'Last Quarter';
+}
+
+// Moon phase icons (inline SVGs)
+function getMoonPhaseIcon(phase) {
+    const size = 'width="16" height="16"';
+    switch (phase) {
+        case 'New Moon':
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#333"/></svg>`;
+        case 'Waxing Crescent':
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#333"/><path d="M12 2a10 10 0 0 0 0 20c-2.5 0-4.5-2-4.5-5s2-5 4.5-5z" fill="#fff"/></svg>`;
+        case 'First Quarter':
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#333"/><path d="M12 2v20a10 10 0 0 0 0-20z" fill="#fff"/></svg>`;
+        case 'Waxing Gibbous':
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#333"/><path d="M12 2a10 10 0 0 1 0 20c2.5 0 4.5-2 4.5-5s-2-5-4.5-5z" fill="#fff"/></svg>`;
+        case 'Full Moon':
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#fff"/></svg>`;
+        case 'Waning Gibbous':
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#333"/><path d="M12 2a10 10 0 0 0 0 20c-2.5 0-4.5-2-4.5-5s2-5 4.5-5z" fill="#fff"/></svg>`;
+        case 'Last Quarter':
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#333"/><path d="M12 2v20a10 10 0 0 1 0-20z" fill="#fff"/></svg>`;
+        case 'Waning Crescent':
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#333"/><path d="M12 2a10 10 0 0 1 0 20c2.5 0 4.5-2 4.5-5s-2-5-4.5-5z" fill="#fff"/></svg>`;
+        default:
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#ccc"/></svg>`;
+    }
 }
 
 function mapSeeing(value) {
