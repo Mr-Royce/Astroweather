@@ -49,12 +49,13 @@ button:hover {
     text-align: left;
 }
 .day-card h3 {
-    margin: 0 0 10px;
+    margin: 0 0 5px;
     color: #007bff;
 }
-.day-card p {
-    margin: 5px 0;
+.day-summary {
     font-size: 14px;
+    color: #555;
+    margin-bottom: 10px;
 }
 .hourly {
     margin-top: 10px;
