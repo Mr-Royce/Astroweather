@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Astro Weather Forecast</title>
-    <link rel="icon" href="/favicon.ico"> <!-- Added favicon link -->
+    <link rel="icon" href="/favicon.ico">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -13,6 +13,7 @@
         <div class="input-group">
             <input type="text" id="location" placeholder="Enter city, lat,lon, or zip code">
             <button onclick="getForecast()">Get Forecast</button>
+            <button onclick="getForecast(true)">Use My Location</button>
         </div>
         <div id="forecast"></div>
     </div>
