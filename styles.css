@@ -28,8 +28,13 @@ button {
     background-color: #007bff;
     color: white;
     border: none;
-    border-radius: 0 5px 5px 0;
     cursor: pointer;
+}
+button:nth-child(2) {
+    border-radius: 0;
+}
+button:nth-child(3) {
+    border-radius: 0 5px 5px 0;
 }
 button:hover {
     background-color: #0056b3;
