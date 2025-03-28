@@ -76,6 +76,10 @@ button:hover {
 .trans-good { color: #28a745; }
 .trans-avg { color: #ffc107; }
 .trans-poor { color: #dc3545; }
-.precip-low { color: #28a745; }  /* < 10% */
-.precip-mid { color: #ffc107; } /* 10-50% */
-.precip-high { color: #dc3545; } /* > 50% */
+.precip-low { color: #28a745; }
+.precip-mid { color: #ffc107; }
+.precip-high { color: #dc3545; }
+.moon-icon {
+    vertical-align: middle;
+    margin-right: 5px;
+}
