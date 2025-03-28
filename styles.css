@@ -5,4 +5,11 @@ body {
 }
 #forecast {
     margin-top: 20px;
+    text-align: left;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+#forecast p {
+    margin: 5px 0;
 }
