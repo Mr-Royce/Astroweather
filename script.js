@@ -1,5 +1,5 @@
 const OPENWEATHER_API_KEY = '3e87f27f9ac9b7d9fb27c6034e561eb4';
-const METEOSOURCE_API_KEY = '1c42o0y7eq4oy8vcjylneurl68woiavvkgkbg3j4'; // Replace with your key
+const METEOSOURCE_API_KEY = '1c42o0y7eq4oy8vcjylneurl68woiavvkgkbg3j4';
 
 document.getElementById('location').addEventListener('keypress', (e) => {
     if (e.key === 'Enter') getForecast();
@@ -58,24 +58,29 @@ async function getForecast(useGeolocation = false) {
 
             const sevenTimerDay = sevenTimerData.dataseries.slice(day * 8, (day + 1) * 8);
             const openWeatherDay = openWeatherData.list.slice(day * 8, (day + 1) * 8);
-            const meteosourceDay = meteosourceData.hourly.data.slice(day * 24, (day + 1) * 24);
+            const meteosourceDay = meteosourceData.hourly.data.slice(day * 24, Math.min((day + 1) * 24, meteosourceData.hourly.data.length));
 
             // Daily summary
             const temps = [
                 ...openWeatherDay.map(hour => (hour.main.temp - 273.15) * 9/5 + 32),
                 ...sevenTimerDay.map(hour => hour.temp2m * 9/5 + 32),
-                ...meteosourceDay.map(hour => hour.temperature * 9/5 + 32)
-            ];
-            const highTemp = Math.max(...temps);
-            const lowTemp = Math.min(...temps);
+                ...(meteosourceDay.length ? meteosourceDay.map(hour => hour.temperature * 9/5 + 32) : [])
+            ].filter(t => !isNaN(t));
+            const highTemp = temps.length ? Math.max(...temps) : NaN;
+            const lowTemp = temps.length ? Math.min(...temps) : NaN;
 
             const eveningHours = openWeatherDay.filter(hour => {
                 const time = new Date(hour.dt * 1000).getHours();
                 return time >= 20 && time <= 23;
             });
             const eveningClouds = eveningHours.map((hour, i) => {
-                const msHour = meteosourceDay.find(h => new Date(h.date).getHours() === new Date(hour.dt * 1000).getHours()) || meteosourceDay[20 + i];
-                return (hour.clouds.all + (sevenTimerDay[i + 6]?.cloudcover || sevenTimerDay[7].cloudcover) * 10 + (msHour?.cloud_cover.total || 0)) / 3;
+                const msHour = meteosourceDay.find(h => new Date(h.date).getHours() === new Date(hour.dt * 1000).getHours()) || meteosourceDay[Math.min(20 + i, meteosourceDay.length - 1)];
+                const clouds = [
+                    hour.clouds.all,
+                    (sevenTimerDay[i + 6]?.cloudcover || sevenTimerDay[sevenTimerDay.length - 1].cloudcover) * 10,
+                    msHour?.cloud_cover.total || 0
+                ].filter(c => c !== undefined);
+                return clouds.length ? clouds.reduce((a, b) => a + b, 0) / clouds.length : 0;
             });
             const avgEveningCloudCover = eveningClouds.length ? eveningClouds.reduce((a, b) => a + b, 0) / eveningClouds.length : 0;
 
@@ -86,12 +91,18 @@ async function getForecast(useGeolocation = false) {
                 if (time.getHours() < sunsetHour && day === 0) return;
 
                 const sevenTimerHour = sevenTimerDay[i] || sevenTimerDay[sevenTimerDay.length - 1];
-                const msHour = meteosourceDay.find(h => new Date(h.date).getHours() === time.getHours()) || meteosourceDay[i * 3];
-                const cloudCover = (hour.clouds.all + sevenTimerHour.cloudcover * 10 + (msHour?.cloud_cover.total || 0)) / 3;
-                const temp = ((hour.main.temp - 273.15) * 9/5 + 32 + (sevenTimerHour.temp2m * 9/5 + 32) + (msHour?.temperature * 9/5 + 32)) / 3;
-                const windSpeed = ((hour.wind.speed + sevenTimerHour.wind10m.speed + (msHour?.wind.speed || 0)) * 2.237) / 3;
-                const humidity = (hour.main.humidity + sevenTimerHour.rh2m + (msHour?.relative_humidity || 0)) / 3;
-                const precipChance = msHour?.precipitation.total ? msHour.precipitation.total * 100 / 25.4 : 0; // Convert mm to % chance (rough)
+                const msHourIndex = Math.floor((time - new Date().setHours(0, 0, 0, 0)) / (1000 * 60 * 60)) + i;
+                const msHour = meteosourceDay[msHourIndex] || meteosourceDay[meteosourceDay.length - 1] || {};
+
+                const cloudCover = [hour.clouds.all, sevenTimerHour.cloudcover * 10, msHour.cloud_cover?.total || 0]
+                    .filter(c => c !== undefined).reduce((a, b) => a + b, 0) / 3;
+                const temp = [(hour.main.temp - 273.15) * 9/5 + 32, sevenTimerHour.temp2m * 9/5 + 32, msHour.temperature * 9/5 + 32]
+                    .filter(t => !isNaN(t)).reduce((a, b) => a + b, 0) / 3;
+                const windSpeed = [hour.wind.speed, sevenTimerHour.wind10m.speed, msHour.wind?.speed || 0]
+                    .filter(w => w !== undefined).reduce((a, b) => a + b, 0) * 2.237 / 3;
+                const humidity = [hour.main.humidity, sevenTimerHour.rh2m, msHour.relative_humidity || 0]
+                    .filter(h => h !== undefined).reduce((a, b) => a + b, 0) / 3;
+                const precipChance = msHour.precipitation?.total ? msHour.precipitation.total * 100 / 25.4 : 0;
                 const seeing = mapSeeing(sevenTimerHour.seeing);
                 const transparency = cloudCover > 80 ? 'Cloudy' : mapTransparency(sevenTimerHour.transparency);
 
@@ -114,7 +125,7 @@ async function getForecast(useGeolocation = false) {
                 <div class="day-card">
                     <h3>${dateStr}</h3>
                     <div class="day-summary">
-                        High: ${highTemp.toFixed(1)}°F, Low: ${lowTemp.toFixed(1)}°F<br>
+                        High: ${isNaN(highTemp) ? 'N/A' : highTemp.toFixed(1)}°F, Low: ${isNaN(lowTemp) ? 'N/A' : lowTemp.toFixed(1)}°F<br>
                         Avg Cloud Cover (8 PM - 12 AM): ${avgEveningCloudCover.toFixed(1)}%<br>
                         <strong>Astro Twilight:</strong> ${
                             astroTwilightTime instanceof Date && !isNaN(astroTwilightTime) 
