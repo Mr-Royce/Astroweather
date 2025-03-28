@@ -8,74 +8,68 @@ async function getForecast() {
     const locationInput = document.getElementById('location').value || '10001'; // Default: NYC zip
     let lat, lon, locationName;
 
-    // Determine input type
-    if (locationInput.includes(',')) {
-        [lat, lon] = locationInput.split(',').map(Number);
-        locationName = `Lat: ${lat}, Lon: ${lon}`;
-    } else if (/^\d{5}$/.test(locationInput)) {
-        ({ lat, lon, name: locationName } = await geocodeZip(locationInput));
-    } else {
-        ({ lat, lon, name: locationName } = await geocodeCity(locationInput));
-    }
+    try {
+        // Determine input type
+        if (locationInput.includes(',')) {
+            [lat, lon] = locationInput.split(',').map(Number);
+            locationName = `Lat: ${lat}, Lon: ${lon}`;
+        } else if (/^\d{5}$/.test(locationInput)) {
+            ({ lat, lon, name: locationName } = await geocodeZip(locationInput));
+        } else {
+            ({ lat, lon, name: locationName } = await geocodeCity(locationInput));
+        }
 
-    // Fetch data
-    const [sevenTimerData, openWeatherData] = await Promise.all([
-        fetch7Timer(lat, lon),
-        fetchOpenWeatherOneCall(lat, lon)
-    ]);
+        // Fetch data
+        const [sevenTimerData, openWeatherData] = await Promise.all([
+            fetch7Timer(lat, lon),
+            fetchOpenWeather(lat, lon) // Using basic weather endpoint
+        ]);
 
-    // Get sunset time for filtering
-    const sunset = new Date(openWeatherData.current.sunset * 1000);
-    const timezoneOffset = openWeatherData.timezone_offset / 3600; // Hours
+        // Process current data from 7Timer! (first point)
+        const sevenTimer = sevenTimerData.dataseries[0];
+        const cloudCover7T = sevenTimer.cloudcover * 10;
+        const temp7T = sevenTimer.temp2m * 9/5 + 32; // Fahrenheit
+        const windSpeed7T = sevenTimer.wind10m.speed * 2.237; // MPH
+        const humidity7T = sevenTimer.rh2m;
+        const seeing = sevenTimer.seeing;
+        const transparency = mapTransparency(sevenTimer.transparency);
 
-    // Process 3-day forecast
-    let forecastHTML = '';
-    for (let day = 0; day < 3; day++) {
-        const date = new Date();
-        date.setDate(date.getDate() + day);
-        const dateStr = date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+        // Process current data from OpenWeatherMap
+        const cloudCoverOW = openWeatherData.clouds.all;
+        const tempOW = (openWeatherData.main.temp - 273.15) * 9/5 + 32; // Fahrenheit
+        const windSpeedOW = openWeatherData.wind.speed * 2.237; // MPH
+        const humidityOW = openWeatherData.main.humidity;
 
-        // 7Timer! data (8 data points per day, ~3-hour intervals)
-        const sevenTimerDay = sevenTimerData.dataseries.slice(day * 8, (day + 1) * 8);
-        // OpenWeatherMap hourly data (24 hours per day)
-        const openWeatherDay = openWeatherData.hourly.slice(day * 24, (day + 1) * 24);
+        // Average data
+        const avgCloudCover = (cloudCover7T + cloudCoverOW) / 2;
+        const avgTemp = (temp7T + tempOW) / 2;
+        const avgWindSpeed = (windSpeed7T + windSpeedOW) / 2;
+        const avgHumidity = (humidity7T + humidityOW) / 2;
 
-        let hourlyHTML = '';
-        openWeatherDay.forEach((hour, i) => {
-            const time = new Date(hour.dt * 1000);
-            if (time.getHours() < sunset.getHours() && day === 0) return; // Skip pre-sunset on day 1
-
-            const sevenTimerHour = sevenTimerDay[Math.floor(i / 3)] || sevenTimerDay[sevenTimerDay.length - 1];
-            const cloudCover = (sevenTimerHour.cloudcover * 10 + hour.clouds) / 2;
-            const temp = ((hour.temp - 273.15) * 9/5 + 32 + (sevenTimerHour.temp2m * 9/5 + 32)) / 2; // Fahrenheit
-            const windSpeed = ((hour.wind_speed + sevenTimerHour.wind10m.speed) * 2.237) / 2; // m/s to MPH
-            const humidity = (hour.humidity + sevenTimerHour.rh2m) / 2;
-            const seeing = sevenTimerHour.seeing;
-            const transparency = mapTransparency(sevenTimerHour.transparency);
-
-            hourlyHTML += `
-                <div class="hourly">
-                    <strong>${time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}:</strong><br>
-                    Cloud: ${cloudCover.toFixed(1)}%, Temp: ${temp.toFixed(1)}°F, Wind: ${windSpeed.toFixed(1)} MPH<br>
-                    Humidity: ${humidity.toFixed(1)}%, Seeing: ${seeing}", Transparency: ${transparency}
-                </div>
-            `;
-        });
-
-        forecastHTML += `
+        // Display current forecast
+        const forecastHTML = `
             <div class="day-card">
-                <h3>${dateStr}</h3>
-                ${hourlyHTML}
+                <h3>Current Conditions (${new Date().toLocaleString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })})</h3>
+                <p>Cloud Cover: ${avgCloudCover.toFixed(1)}%</p>
+                <p>Temperature: ${avgTemp.toFixed(1)}°F</p>
+                <p>Wind Speed: ${avgWindSpeed.toFixed(1)} MPH</p>
+                <p>Humidity: ${avgHumidity.toFixed(1)}%</p>
+                <p>Seeing: ${seeing}" (7Timer!)</p>
+                <p>Transparency: ${transparency} (7Timer!)</p>
             </div>
         `;
-    }
 
-    document.getElementById('forecast').innerHTML = `<h2>${locationName}</h2>${forecastHTML}`;
+        document.getElementById('forecast').innerHTML = `<h2>${locationName}</h2>${forecastHTML}`;
+    } catch (error) {
+        console.error('Error fetching forecast:', error);
+        document.getElementById('forecast').innerHTML = `<h2>Error</h2><p>Could not fetch forecast. Check your API key or try again later.</p>`;
+    }
 }
 
 // Geocode city name
 async function geocodeCity(city) {
     const response = await fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${city}&limit=1&appid=${API_KEY}`);
+    if (!response.ok) throw new Error('Geocoding failed');
     const data = await response.json();
     return { lat: data[0].lat, lon: data[0].lon, name: data[0].name };
 }
@@ -83,6 +77,7 @@ async function geocodeCity(city) {
 // Geocode zip code
 async function geocodeZip(zip) {
     const response = await fetch(`https://api.openweathermap.org/geo/1.0/zip?zip=${zip},US&appid=${API_KEY}`);
+    if (!response.ok) throw new Error('Zip code geocoding failed');
     const data = await response.json();
     return { lat: data.lat, lon: data.lon, name: data.name };
 }
@@ -90,12 +85,14 @@ async function geocodeZip(zip) {
 // Fetch 7Timer! ASTRO data
 async function fetch7Timer(lat, lon) {
     const response = await fetch(`https://www.7timer.info/bin/astro.php?lon=${lon}&lat=${lat}&ac=0&unit=metric&output=json`);
+    if (!response.ok) throw new Error('7Timer! fetch failed');
     return await response.json();
 }
 
-// Fetch OpenWeatherMap One Call data (using 2.5 endpoint)
-async function fetchOpenWeatherOneCall(lat, lon) {
-    const response = await fetch(`https://api.openweathermap.org/data/2.5/onecall?lat=${lat}&lon=${lon}&exclude=minutely&appid=${API_KEY}`);
+// Fetch OpenWeatherMap basic weather data
+async function fetchOpenWeather(lat, lon) {
+    const response = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}`);
+    if (!response.ok) throw new Error('OpenWeatherMap fetch failed: ' + response.status);
     return await response.json();
 }
 
