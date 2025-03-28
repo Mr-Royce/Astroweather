@@ -14,12 +14,16 @@ async function getForecast(useGeolocation = false) {
             });
             lat = position.coords.latitude;
             lon = position.coords.longitude;
-            locationName = `Current Location (Lat: ${lat.toFixed(4)}, Lon: ${lon.toFixed(4)})`;
+            const reverseGeo = await fetch(`https://api.openweathermap.org/geo/1.0/reverse?lat=${lat}&lon=${lon}&limit=1&appid=${API_KEY}`)
+                .then(res => res.json());
+            locationName = reverseGeo[0]?.name || `Lat: ${lat.toFixed(4)}, Lon: ${lon.toFixed(4)}`;
         } else {
             const locationInput = document.getElementById('location').value || '10001';
             if (locationInput.includes(',')) {
                 [lat, lon] = locationInput.split(',').map(Number);
-                locationName = `Lat: ${lat}, Lon: ${lon}`;
+                const reverseGeo = await fetch(`https://api.openweathermap.org/geo/1.0/reverse?lat=${lat}&lon=${lon}&limit=1&appid=${API_KEY}`)
+                    .then(res => res.json());
+                locationName = reverseGeo[0]?.name || `Lat: ${lat}, Lon: ${lon}`;
             } else if (/^\d{5}$/.test(locationInput)) {
                 ({ lat, lon, name: locationName } = await geocodeZip(locationInput));
             } else {
@@ -46,7 +50,9 @@ async function getForecast(useGeolocation = false) {
             const dateStr = date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
 
             // Get astronomical twilight for this day
-            const astroTwilightTime = new Date(twilightData.results[day].astronomical_twilight_end);
+            const astroTwilightTime = twilightData[day]?.results?.astronomical_twilight_end 
+                ? new Date(twilightData[day].results.astronomical_twilight_end) 
+                : null;
 
             const sevenTimerDay = sevenTimerData.dataseries.slice(day * 8, (day + 1) * 8);
             const openWeatherDay = openWeatherData.list.slice(day * 8, (day + 1) * 8);
@@ -155,7 +161,7 @@ function fetchSunriseSunset(lat, lon) {
     return Promise.all(dates.map(date => 
         fetch(`https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lon}&date=${date}&formatted=0`)
             .then(res => res.json())
-    )).then(results => ({ results }));
+    ));
 }
 
 function mapSeeing(value) {
