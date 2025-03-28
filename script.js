@@ -1,6 +1,28 @@
 const OPENWEATHER_API_KEY = '3e87f27f9ac9b7d9fb27c6034e561eb4';
 const METEOSOURCE_API_KEY = '1c42o0y7eq4oy8vcjylneurl68woiavvkgkbg3j4';
 
+// SunCalc-like moonrise/moonset calculator (simplified)
+function getMoonTimes(date, lat, lon) {
+    const J2000 = 2451545.0;
+    const daysSinceJ2000 = (date.getTime() / 86400000) - (new Date('2000-01-01T12:00:00Z').getTime() / 86400000);
+    const lunarCycle = 29.53058867;
+    const phaseAngle = (daysSinceJ2000 % lunarCycle) / lunarCycle * 360;
+
+    // Rough approximation of moonrise/moonset (simplified from SunCalc)
+    const lw = -lon * Math.PI / 180; // longitude in radians
+    const phi = lat * Math.PI / 180; // latitude in radians
+    const H = Math.acos(-Math.tan(phi) * Math.tan(0.074 * Math.cos(phaseAngle * Math.PI / 180))); // hour angle
+    const rise = 12 - H * 12 / Math.PI + lw * 12 / Math.PI;
+    const set = 12 + H * 12 / Math.PI + lw * 12 / Math.PI;
+
+    const baseDate = new Date(date);
+    baseDate.setUTCHours(0, 0, 0, 0);
+    const moonrise = new Date(baseDate.getTime() + rise * 3600000);
+    const moonset = new Date(baseDate.getTime() + set * 3600000);
+
+    return { moonrise, moonset };
+}
+
 document.getElementById('location').addEventListener('keypress', (e) => {
     if (e.key === 'Enter') getForecast();
 });
@@ -56,12 +78,20 @@ async function getForecast(useGeolocation = false) {
             const astroTwilightTime = twilightData[day]?.results?.astronomical_twilight_end 
                 ? new Date(twilightData[day].results.astronomical_twilight_end) 
                 : null;
-            const moonriseTime = twilightData[day]?.results?.moonrise && twilightData[day].results.moonrise !== 'N/A'
+            let moonriseTime = twilightData[day]?.results?.moonrise && twilightData[day].results.moonrise !== 'N/A'
                 ? new Date(twilightData[day].results.moonrise) 
                 : null;
-            const moonsetTime = twilightData[day]?.results?.moonset && twilightData[day].results.moonset !== 'N/A'
+            let moonsetTime = twilightData[day]?.results?.moonset && twilightData[day].results.moonset !== 'N/A'
                 ? new Date(twilightData[day].results.moonset) 
                 : null;
+            
+            // Fallback to local calculation if API data is missing
+            if (!moonriseTime || !moonsetTime) {
+                const { moonrise, moonset } = getMoonTimes(date, lat, lon);
+                moonriseTime = moonriseTime || moonrise;
+                moonsetTime = moonsetTime || moonset;
+            }
+
             const moonPhase = meteosourceData?.daily?.data[day]?.moon_phase || calculateMoonPhase(date);
             const moonIcon = getMoonPhaseIcon(moonPhase);
 
@@ -207,16 +237,16 @@ function fetchSunriseSunset(lat, lon) {
 }
 
 function fetchMeteosource(lat, lon) {
-    return fetch(`https://www.meteosource.com/api/v1/free/point?lat=${lat}&lon=${lon}&sections=current,hourly,daily&units=metric&key=${METEOSOURCE_API_KEY}`)
+    return fetch(`https://www.meteosource.com/api/v1/free/point?lat=${lat}&lon=${lon}§ions=current,hourly,daily&units=metric&key=${METEOSOURCE_API_KEY}`)
         .then(res => { if (!res.ok) throw new Error('Meteosource fetch failed'); return res.json(); });
 }
 
 // Simple moon phase calculator
 function calculateMoonPhase(date) {
-    const J2000 = 2451545.0; // Julian date for J2000 epoch
+    const J2000 = 2451545.0;
     const daysSinceJ2000 = (date.getTime() / 86400000) - (new Date('2000-01-01T12:00:00Z').getTime() / 86400000);
-    const lunarCycle = 29.53058867; // Synodic month in days
-    const phase = (daysSinceJ2000 % lunarCycle) / lunarCycle; // Fraction of cycle
+    const lunarCycle = 29.53058867;
+    const phase = (daysSinceJ2000 % lunarCycle) / lunarCycle;
 
     if (phase < 0.03 || phase >= 0.97) return 'New Moon';
     if (phase < 0.25) return 'Waxing Crescent';
@@ -227,28 +257,28 @@ function calculateMoonPhase(date) {
     return 'Last Quarter';
 }
 
-// Moon phase icons (darker, larger SVGs)
+// Moon phase icons (darker, 24x24)
 function getMoonPhaseIcon(phase) {
-    const size = 'width="24" height="24"'; // Increased from 16x16 to 24x24
+    const size = 'width="24" height="24"';
     switch (phase) {
         case 'New Moon':
-            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#555" stroke="#000" stroke-width="1"/></svg>`;
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#333" stroke="#000" stroke-width="1"/></svg>`;
         case 'Waxing Crescent':
-            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#555" stroke="#000" stroke-width="1"/><path d="M12 2a10 10 0 0 0 0 20c-2.5 0-4.5-2-4.5-5s2-5 4.5-5z" fill="#ddd"/></svg>`;
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#333" stroke="#000" stroke-width="1"/><path d="M12 2a10 10 0 0 0 0 20c-2.5 0-4.5-2-4.5-5s2-5 4.5-5z" fill="#999"/></svg>`;
         case 'First Quarter':
-            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#555" stroke="#000" stroke-width="1"/><path d="M12 2v20a10 10 0 0 0 0-20z" fill="#ddd"/></svg>`;
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#333" stroke="#000" stroke-width="1"/><path d="M12 2v20a10 10 0 0 0 0-20z" fill="#999"/></svg>`;
         case 'Waxing Gibbous':
-            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#555" stroke="#000" stroke-width="1"/><path d="M12 2a10 10 0 0 1 0 20c2.5 0 4.5-2 4.5-5s-2-5-4.5-5z" fill="#ddd"/></svg>`;
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#333" stroke="#000" stroke-width="1"/><path d="M12 2a10 10 0 0 1 0 20c2.5 0 4.5-2 4.5-5s-2-5-4.5-5z" fill="#999"/></svg>`;
         case 'Full Moon':
-            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#ddd" stroke="#000" stroke-width="1"/></svg>`;
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#999" stroke="#000" stroke-width="1"/></svg>`;
         case 'Waning Gibbous':
-            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#555" stroke="#000" stroke-width="1"/><path d="M12 2a10 10 0 0 0 0 20c-2.5 0-4.5-2-4.5-5s2-5 4.5-5z" fill="#ddd"/></svg>`;
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#333" stroke="#000" stroke-width="1"/><path d="M12 2a10 10 0 0 0 0 20c-2.5 0-4.5-2-4.5-5s2-5 4.5-5z" fill="#999"/></svg>`;
         case 'Last Quarter':
-            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#555" stroke="#000" stroke-width="1"/><path d="M12 2v20a10 10 0 0 1 0-20z" fill="#ddd"/></svg>`;
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#333" stroke="#000" stroke-width="1"/><path d="M12 2v20a10 10 0 0 1 0-20z" fill="#999"/></svg>`;
         case 'Waning Crescent':
-            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#555" stroke="#000" stroke-width="1"/><path d="M12 2a10 10 0 0 1 0 20c2.5 0 4.5-2 4.5-5s-2-5-4.5-5z" fill="#ddd"/></svg>`;
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#333" stroke="#000" stroke-width="1"/><path d="M12 2a10 10 0 0 1 0 20c2.5 0 4.5-2 4.5-5s-2-5-4.5-5z" fill="#999"/></svg>`;
         default:
-            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#888" stroke="#000" stroke-width="1"/></svg>`;
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#666" stroke="#000" stroke-width="1"/></svg>`;
     }
 }
 
