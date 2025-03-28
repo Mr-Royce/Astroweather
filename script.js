@@ -87,7 +87,7 @@ async function fetch7Timer(lat, lon) {
 
 // Fetch OpenWeatherMap data
 async function fetchOpenWeather(lat, lon) {
-    const apiKey = 'YOUR_OPENWEATHERMAP_API_KEY';
+    const apiKey = '3e87f27f9ac9b7d9fb27c6034e561eb4';
     const response = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}`);
     return await response.json();
 }
