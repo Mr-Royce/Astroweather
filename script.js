@@ -27,10 +27,9 @@ async function getForecast(useGeolocation = false) {
             }
         }
 
-        // Fetch current weather for sunset time
+        // Fetch current weather for sunset time (used as a base)
         const currentWeather = await fetchOpenWeather(lat, lon);
         const sunsetHour = new Date(currentWeather.sys.sunset * 1000).getHours();
-        const astroTwilightTime = calculateAstroTwilight(lat, lon, new Date(), currentWeather.sys.sunset * 1000);
 
         // Fetch forecast data
         const [sevenTimerData, openWeatherData] = await Promise.all([
@@ -39,15 +38,14 @@ async function getForecast(useGeolocation = false) {
         ]);
 
         // Process 3-day forecast
-        let forecastHTML = `<p><strong>Astronomical Twilight (Dark Enough):</strong> ${
-            astroTwilightTime instanceof Date && !isNaN(astroTwilightTime) 
-                ? astroTwilightTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) 
-                : 'Not available'
-        }</p>`;
+        let forecastHTML = '';
         for (let day = 0; day < 3; day++) {
             const date = new Date();
             date.setDate(date.getDate() + day);
             const dateStr = date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+
+            // Calculate astronomical twilight for this specific day
+            const astroTwilightTime = calculateAstroTwilight(lat, lon, date, currentWeather.sys.sunset * 1000 + day * 24 * 60 * 60 * 1000);
 
             const sevenTimerDay = sevenTimerData.dataseries.slice(day * 8, (day + 1) * 8);
             const openWeatherDay = openWeatherData.list.slice(day * 8, (day + 1) * 8);
@@ -95,7 +93,12 @@ async function getForecast(useGeolocation = false) {
                     <h3>${dateStr}</h3>
                     <div class="day-summary">
                         High: ${highTemp.toFixed(1)}°F, Low: ${lowTemp.toFixed(1)}°F<br>
-                        Avg Cloud Cover (8 PM - 12 AM): ${avgEveningCloudCover.toFixed(1)}%
+                        Avg Cloud Cover (8 PM - 12 AM): ${avgEveningCloudCover.toFixed(1)}%<br>
+                        <strong>Astro Twilight:</strong> ${
+                            astroTwilightTime instanceof Date && !isNaN(astroTwilightTime) 
+                                ? astroTwilightTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) 
+                                : 'Not available'
+                        }
                     </div>
                     ${hourlyHTML}
                 </div>
@@ -151,7 +154,6 @@ function calculateAstroTwilight(lat, lon, date, sunsetTime) {
     const cosH = (Math.cos(H0 * Math.PI / 180) - Math.sin(lat * Math.PI / 180) * Math.sin(delta * Math.PI / 180)) / 
                   (Math.cos(lat * Math.PI / 180) * Math.cos(delta * Math.PI / 180));
     
-    // Handle invalid cosH (outside [-1, 1])
     if (cosH < -1 || cosH > 1 || isNaN(cosH)) {
         return new Date(sunsetTime + 90 * 60 * 1000); // Fallback: 90 minutes after sunset
     }
