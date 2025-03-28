@@ -204,6 +204,11 @@ function fetchSunriseSunset(lat, lon) {
     ));
 }
 
+function fetchMeteosource(lat, lon) {
+    return fetch(`https://www.meteosource.com/api/v1/free/point?lat=${lat}&lon=${lon}&sections=current,hourly,daily&units=metric&key=${METEOSOURCE_API_KEY}`)
+        .then(res => { if (!res.ok) throw new Error('Meteosource fetch failed'); return res.json(); });
+}
+
 // Simple moon phase calculator
 function calculateMoonPhase(date) {
     const J2000 = 2451545.0; // Julian date for J2000 epoch
