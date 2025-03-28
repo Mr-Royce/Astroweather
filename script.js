@@ -65,7 +65,7 @@ async function getForecast() {
 
 // Geocode city name to lat/lon
 async function geocodeCity(city) {
-    const apiKey = 'YOUR_OPENWEATHERMAP_API_KEY';
+    const apiKey = '3e87f27f9ac9b7d9fb27c6034e561eb4';
     const response = await fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${city}&limit=1&appid=${apiKey}`);
     const data = await response.json();
     return { lat: data[0].lat, lon: data[0].lon, name: data[0].name };
@@ -73,7 +73,7 @@ async function geocodeCity(city) {
 
 // Geocode zip code to lat/lon
 async function geocodeZip(zip) {
-    const apiKey = 'YOUR_OPENWEATHERMAP_API_KEY';
+    const apiKey = '3e87f27f9ac9b7d9fb27c6034e561eb4';
     const response = await fetch(`https://api.openweathermap.org/geo/1.0/zip?zip=${zip},US&appid=${apiKey}`);
     const data = await response.json();
     return { lat: data.lat, lon: data.lon, name: data.name };
