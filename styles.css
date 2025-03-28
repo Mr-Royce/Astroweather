@@ -67,13 +67,15 @@ button:hover {
     border-top: 1px solid #eee;
     padding-top: 10px;
 }
-/* Color coding */
-.cloud-good { color: #28a745; } /* Green: < 30% */
-.cloud-avg { color: #ffc107; }  /* Yellow: 30-70% */
-.cloud-poor { color: #dc3545; } /* Red: > 70% */
-.seeing-good { color: #28a745; } /* Green: Excellent/Good */
-.seeing-avg { color: #ffc107; }  /* Yellow: Average */
-.seeing-poor { color: #dc3545; } /* Red: Poor/Very Poor */
-.trans-good { color: #28a745; }  /* Green: Excellent/Good */
-.trans-avg { color: #ffc107; }   /* Yellow: Average/Below Avg */
-.trans-poor { color: #dc3545; }  /* Red: Poor/Very Poor/Cloudy */
+.cloud-good { color: #28a745; }
+.cloud-avg { color: #ffc107; }
+.cloud-poor { color: #dc3545; }
+.seeing-good { color: #28a745; }
+.seeing-avg { color: #ffc107; }
+.seeing-poor { color: #dc3545; }
+.trans-good { color: #28a745; }
+.trans-avg { color: #ffc107; }
+.trans-poor { color: #dc3545; }
+.precip-low { color: #28a745; }  /* < 10% */
+.precip-mid { color: #ffc107; } /* 10-50% */
+.precip-high { color: #dc3545; } /* > 50% */
