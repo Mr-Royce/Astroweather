@@ -33,13 +33,12 @@ async function getForecast(useGeolocation = false) {
         }
 
         // Fetch all data
-        const [currentWeather, sevenTimerData, openWeatherData, twilightData, meteosourceData, meteosourceAstro] = await Promise.all([
+        const [currentWeather, sevenTimerData, openWeatherData, twilightData, meteosourceData] = await Promise.all([
             fetchOpenWeather(lat, lon),
             fetch7Timer(lat, lon),
             fetchOpenWeatherForecast(lat, lon),
             fetchSunriseSunset(lat, lon),
-            fetchMeteosource(lat, lon),
-            fetchMeteosourceAstronomy(lat, lon)
+            fetchMeteosource(lat, lon).catch(err => { console.warn('Meteosource failed:', err); return null; })
         ]);
 
         const sunsetHour = new Date(currentWeather.sys.sunset * 1000).getHours();
@@ -55,18 +54,18 @@ async function getForecast(useGeolocation = false) {
             const astroTwilightTime = twilightData[day]?.results?.astronomical_twilight_end 
                 ? new Date(twilightData[day].results.astronomical_twilight_end) 
                 : null;
-            const moonPhase = meteosourceAstro.data[day]?.moon_phase || 'Unknown';
+            const moonPhase = meteosourceData?.daily?.data[day]?.moon_phase || 'Unknown';
 
             const sevenTimerDay = sevenTimerData.dataseries.slice(day * 8, Math.min((day + 1) * 8, sevenTimerData.dataseries.length));
             const openWeatherDay = openWeatherData.list.slice(day * 8, Math.min((day + 1) * 8, openWeatherData.list.length));
-            const meteosourceDay = meteosourceData.hourly.data.slice(day * 24, Math.min((day + 1) * 24, meteosourceData.hourly.data.length));
+            const meteosourceDay = meteosourceData?.hourly?.data?.slice(day * 24, Math.min((day + 1) * 24, meteosourceData?.hourly?.data?.length)) || [];
 
             // Hourly averages for the day
             const hourlyTemps = openWeatherDay.map((hour, i) => {
                 const sevenTimerHour = sevenTimerDay[i] || sevenTimerDay[sevenTimerDay.length - 1];
                 const msHour = meteosourceDay[i * 3] || meteosourceDay[meteosourceDay.length - 1] || {};
                 return [(hour.main.temp - 273.15) * 9/5 + 32, sevenTimerHour.temp2m * 9/5 + 32, msHour.temperature * 9/5 + 32]
-                    .filter(t => !isNaN(t)).reduce((a, b) => a + b, 0) / 3;
+                    .filter(t => !isNaN(t)).reduce((a, b) => a + b, 0) / (msHour.temperature ? 3 : 2);
             }).filter(t => !isNaN(t));
             const highTemp = hourlyTemps.length ? Math.max(...hourlyTemps) : NaN;
             const lowTemp = hourlyTemps.length ? Math.min(...hourlyTemps) : NaN;
@@ -76,11 +75,11 @@ async function getForecast(useGeolocation = false) {
                 return time >= 20 && time <= 23;
             });
             const eveningClouds = eveningHours.map((hour, i) => {
-                const msHour = meteosourceDay.find(h => new Date(h.date).getHours() === new Date(hour.dt * 1000).getHours()) || meteosourceDay[Math.min(20 + i, meteosourceDay.length - 1)];
+                const msHour = meteosourceDay.find(h => h && new Date(h.date).getHours() === new Date(hour.dt * 1000).getHours()) || meteosourceDay[Math.min(20 + i, meteosourceDay.length - 1)] || {};
                 const clouds = [
                     hour.clouds.all,
                     (sevenTimerDay[i + 6]?.cloudcover || sevenTimerDay[sevenTimerDay.length - 1].cloudcover) * 10,
-                    msHour?.cloud_cover.total || 0
+                    msHour.cloud_cover?.total || 0
                 ].filter(c => c !== undefined);
                 return clouds.length ? clouds.reduce((a, b) => a + b, 0) / clouds.length : 0;
             });
@@ -96,13 +95,13 @@ async function getForecast(useGeolocation = false) {
                 const msHour = meteosourceDay[i * 3] || meteosourceDay[meteosourceDay.length - 1] || {};
 
                 const cloudCover = [hour.clouds.all, sevenTimerHour.cloudcover * 10, msHour.cloud_cover?.total || 0]
-                    .filter(c => c !== undefined).reduce((a, b) => a + b, 0) / 3;
+                    .filter(c => c !== undefined).reduce((a, b) => a + b, 0) / (msHour.cloud_cover ? 3 : 2);
                 const temp = [(hour.main.temp - 273.15) * 9/5 + 32, sevenTimerHour.temp2m * 9/5 + 32, msHour.temperature * 9/5 + 32]
-                    .filter(t => !isNaN(t)).reduce((a, b) => a + b, 0) / 3;
+                    .filter(t => !isNaN(t)).reduce((a, b) => a + b, 0) / (msHour.temperature ? 3 : 2);
                 const windSpeed = [hour.wind.speed, sevenTimerHour.wind10m.speed, msHour.wind?.speed || 0]
-                    .filter(w => w !== undefined).reduce((a, b) => a + b, 0) * 2.237 / 3;
+                    .filter(w => w !== undefined).reduce((a, b) => a + b, 0) * 2.237 / (msHour.wind ? 3 : 2);
                 const humidity = [hour.main.humidity, sevenTimerHour.rh2m, msHour.relative_humidity || 0]
-                    .filter(h => h !== undefined).reduce((a, b) => a + b, 0) / 3;
+                    .filter(h => h !== undefined).reduce((a, b) => a + b, 0) / (msHour.relative_humidity ? 3 : 2);
                 const precipChance = msHour.precipitation?.total ? msHour.precipitation.total * 100 / 25.4 : 0;
                 const seeing = mapSeeing(sevenTimerHour.seeing);
                 const transparency = cloudCover > 80 ? 'Cloudy' : mapTransparency(sevenTimerHour.transparency);
@@ -189,21 +188,8 @@ function fetchSunriseSunset(lat, lon) {
 }
 
 function fetchMeteosource(lat, lon) {
-    return fetch(`https://www.meteosource.com/api/v1/free/point?lat=${lat}&lon=${lon}§ions=current,hourly,daily&units=metric&key=${METEOSOURCE_API_KEY}`)
+    return fetch(`https://www.meteosource.com/api/v1/free/point?lat=${lat}&lon=${lon}&sections=current,hourly,daily&units=metric&key=${METEOSOURCE_API_KEY}`)
         .then(res => { if (!res.ok) throw new Error('Meteosource fetch failed'); return res.json(); });
-}
-
-function fetchMeteosourceAstronomy(lat, lon) {
-    const today = new Date();
-    const dates = [0, 1, 2].map(day => {
-        const d = new Date(today);
-        d.setDate(today.getDate() + day);
-        return d.toISOString().split('T')[0];
-    });
-    return Promise.all(dates.map(date => 
-        fetch(`https://www.meteosource.com/api/v1/free/astronomy?lat=${lat}&lon=${lon}&date=${date}&key=${METEOSOURCE_API_KEY}`)
-            .then(res => res.json())
-    ));
 }
 
 function mapSeeing(value) {
