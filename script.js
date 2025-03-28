@@ -25,7 +25,7 @@ async function getForecast() {
             fetchOpenWeatherForecast(lat, lon)
         ]);
 
-        // Get sunset time from OpenWeatherMap’s current weather (approximation)
+        // Get sunset time (approximation)
         const currentWeather = await fetchOpenWeather(lat, lon);
         const sunsetHour = new Date(currentWeather.sys.sunset * 1000).getHours();
 
@@ -36,11 +36,28 @@ async function getForecast() {
             date.setDate(date.getDate() + day);
             const dateStr = date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
 
-            // 7Timer! data (8 points/day, ~3-hour intervals)
+            // 7Timer! data (8 points/day)
             const sevenTimerDay = sevenTimerData.dataseries.slice(day * 8, (day + 1) * 8);
             // OpenWeatherMap 3-hour forecast (8 points/day)
             const openWeatherDay = openWeatherData.list.slice(day * 8, (day + 1) * 8);
 
+            // Daily summary: high/low temp and 8 PM - midnight cloud cover
+            const temps = openWeatherDay.map(hour => (hour.main.temp - 273.15) * 9/5 + 32)
+                .concat(sevenTimerDay.map(hour => hour.temp2m * 9/5 + 32));
+            const highTemp = Math.max(...temps);
+            const lowTemp = Math.min(...temps);
+
+            // Cloud cover from 8 PM to midnight (roughly indices 6-7, 21:00 and 00:00)
+            const eveningHours = openWeatherDay.filter(hour => {
+                const time = new Date(hour.dt * 1000).getHours();
+                return time >= 20 && time <= 23;
+            });
+            const eveningClouds = eveningHours.map((hour, i) => 
+                (hour.clouds.all + (sevenTimerDay[i + 6]?.cloudcover || sevenTimerDay[7].cloudcover) * 10) / 2
+            );
+            const avgEveningCloudCover = eveningClouds.length ? eveningClouds.reduce((a, b) => a + b, 0) / eveningClouds.length : 0;
+
+            // Hourly forecast
             let hourlyHTML = '';
             openWeatherDay.forEach((hour, i) => {
                 const time = new Date(hour.dt * 1000);
@@ -51,8 +68,8 @@ async function getForecast() {
                 const temp = ((hour.main.temp - 273.15) * 9/5 + 32 + (sevenTimerHour.temp2m * 9/5 + 32)) / 2; // °F
                 const windSpeed = ((hour.wind.speed + sevenTimerHour.wind10m.speed) * 2.237) / 2; // MPH
                 const humidity = (hour.main.humidity + sevenTimerHour.rh2m) / 2;
-                const seeing = mapSeeing(sevenTimerHour.seeing); // Updated to descriptive scale
-                const transparency = mapTransparency(sevenTimerHour.transparency);
+                const seeing = mapSeeing(sevenTimerHour.seeing);
+                const transparency = cloudCover > 80 ? 'Cloudy' : mapTransparency(sevenTimerHour.transparency);
 
                 hourlyHTML += `
                     <div class="hourly">
@@ -66,6 +83,10 @@ async function getForecast() {
             forecastHTML += `
                 <div class="day-card">
                     <h3>${dateStr}</h3>
+                    <div class="day-summary">
+                        High: ${highTemp.toFixed(1)}°F, Low: ${lowTemp.toFixed(1)}°F<br>
+                        Avg Cloud Cover (8 PM - 12 AM): ${avgEveningCloudCover.toFixed(1)}%
+                    </div>
                     ${hourlyHTML}
                 </div>
             `;
