@@ -67,3 +67,13 @@ button:hover {
     border-top: 1px solid #eee;
     padding-top: 10px;
 }
+/* Color coding */
+.cloud-good { color: #28a745; } /* Green: < 30% */
+.cloud-avg { color: #ffc107; }  /* Yellow: 30-70% */
+.cloud-poor { color: #dc3545; } /* Red: > 70% */
+.seeing-good { color: #28a745; } /* Green: Excellent/Good */
+.seeing-avg { color: #ffc107; }  /* Yellow: Average */
+.seeing-poor { color: #dc3545; } /* Red: Poor/Very Poor */
+.trans-good { color: #28a745; }  /* Green: Excellent/Good */
+.trans-avg { color: #ffc107; }   /* Yellow: Average/Below Avg */
+.trans-poor { color: #dc3545; }  /* Red: Poor/Very Poor/Cloudy */
