@@ -93,9 +93,9 @@ async function fetch7Timer(lat, lon) {
     return await response.json();
 }
 
-// Fetch OpenWeatherMap One Call data
+// Fetch OpenWeatherMap One Call data (using 2.5 endpoint)
 async function fetchOpenWeatherOneCall(lat, lon) {
-    const response = await fetch(`https://api.openweathermap.org/data/3.0/onecall?lat=${lat}&lon=${lon}&exclude=minutely&appid=${API_KEY}`);
+    const response = await fetch(`https://api.openweathermap.org/data/2.5/onecall?lat=${lat}&lon=${lon}&exclude=minutely&appid=${API_KEY}`);
     return await response.json();
 }
 
