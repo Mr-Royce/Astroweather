@@ -24,14 +24,14 @@ async function getForecast() {
 // Geocode city name to lat/lon (using OpenWeatherMap's geocoding API)
 async function geocode(city) {
     const apiKey = '3e87f27f9ac9b7d9fb27c6034e561eb4';
-    const response = await fetch(`http://api.openweathermap.org/geo/1.0/direct?q=${city}&limit=1&appid=${apiKey}`);
+    const response = await fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${city}&limit=1&appid=${apiKey}`);
     const data = await response.json();
     return [data[0].lat, data[0].lon];
 }
 
 // Fetch 7Timer! ASTRO data
 async function fetch7Timer(lat, lon) {
-    const response = await fetch(`http://www.7timer.info/bin/astro.php?lon=${lon}&lat=${lat}&ac=0&unit=metric&output=json`);
+    const response = await fetch(`https://www.7timer.info/bin/astro.php?lon=${lon}&lat=${lat}&ac=0&unit=metric&output=json`);
     return await response.json();
 }
 
