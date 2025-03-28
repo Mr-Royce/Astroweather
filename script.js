@@ -41,6 +41,8 @@ async function getForecast(useGeolocation = false) {
             fetchMeteosource(lat, lon).catch(err => { console.warn('Meteosource failed:', err); return null; })
         ]);
 
+        console.log('Meteosource Response:', meteosourceData?.daily?.data); // Debug log
+
         const sunsetHour = new Date(currentWeather.sys.sunset * 1000).getHours();
 
         // Process 3-day forecast
@@ -54,7 +56,7 @@ async function getForecast(useGeolocation = false) {
             const astroTwilightTime = twilightData[day]?.results?.astronomical_twilight_end 
                 ? new Date(twilightData[day].results.astronomical_twilight_end) 
                 : null;
-            const moonPhase = meteosourceData?.daily?.data[day]?.moon_phase || 'Unknown';
+            const moonPhase = meteosourceData?.daily?.data[day]?.moon_phase || calculateMoonPhase(date);
 
             const sevenTimerDay = sevenTimerData.dataseries.slice(day * 8, Math.min((day + 1) * 8, sevenTimerData.dataseries.length));
             const openWeatherDay = openWeatherData.list.slice(day * 8, Math.min((day + 1) * 8, openWeatherData.list.length));
@@ -190,6 +192,22 @@ function fetchSunriseSunset(lat, lon) {
 function fetchMeteosource(lat, lon) {
     return fetch(`https://www.meteosource.com/api/v1/free/point?lat=${lat}&lon=${lon}&sections=current,hourly,daily&units=metric&key=${METEOSOURCE_API_KEY}`)
         .then(res => { if (!res.ok) throw new Error('Meteosource fetch failed'); return res.json(); });
+}
+
+// Simple moon phase calculator
+function calculateMoonPhase(date) {
+    const J2000 = 2451545.0; // Julian date for J2000 epoch
+    const daysSinceJ2000 = (date.getTime() / 86400000) - (new Date('2000-01-01T12:00:00Z').getTime() / 86400000);
+    const lunarCycle = 29.53058867; // Synodic month in days
+    const phase = (daysSinceJ2000 % lunarCycle) / lunarCycle; // Fraction of cycle
+
+    if (phase < 0.03 || phase >= 0.97) return 'New Moon';
+    if (phase < 0.25) return 'Waxing Crescent';
+    if (phase < 0.47) return 'First Quarter';
+    if (phase < 0.53) return 'Waxing Gibbous';
+    if (phase < 0.75) return 'Full Moon';
+    if (phase < 0.97) return 'Waning Gibbous';
+    return 'Last Quarter';
 }
 
 function mapSeeing(value) {
