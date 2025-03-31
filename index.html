@@ -3,20 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Astro Weather Forecast</title>
-    <link rel="icon" href="/favicon.ico">
-    <link rel="stylesheet" href="styles.css">
+    <title>AstroWeather</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f0f2f5; margin: 0; padding: 10px; }
+        #forecast { max-width: 800px; margin: 0 auto; }
+        .day-card { background: white; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .day-summary { margin-bottom: 10px; }
+        .expand-btn { background: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
+        .expand-btn:hover { background: #0056b3; }
+        .hourly-forecast { display: none; }
+        .hourly-forecast.expanded { display: block; }
+        .hourly { margin: 10px 0; padding-left: 10px; border-left: 2px solid #ddd; }
+    </style>
 </head>
-<body onload="getForecast(true)">
-    <div class="container">
-        <h1>Astronomical Weather Forecast</h1>
-        <div class="input-group">
-            <input type="text" id="location" placeholder="Enter city, lat,lon, or zip code">
-            <button onclick="getForecast()">Get Forecast</button>
-            <button onclick="getForecast(true)">Use My Location</button>
-        </div>
-        <div id="forecast"></div>
-    </div>
+<body>
+    <div id="forecast"></div>
     <script src="script.js"></script>
 </body>
 </html>
