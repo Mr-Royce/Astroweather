@@ -53,7 +53,6 @@ async function getForecast(useGeolocation = false) {
             }
         }
 
-        // Fetch all data
         const [currentWeather, sevenTimerData, openWeatherData, twilightData, meteosourceData] = await Promise.all([
             fetchOpenWeather(lat, lon),
             fetch7Timer(lat, lon),
@@ -63,16 +62,14 @@ async function getForecast(useGeolocation = false) {
         ]);
 
         const sunsetHour = new Date(currentWeather.sys.sunset * 1000).getHours();
-        const currentTime = new Date(); // Current local time
+        const currentTime = new Date();
 
-        // Process 3-day forecast
         let forecastHTML = '';
         for (let day = 0; day < 3; day++) {
             const date = new Date();
             date.setDate(date.getDate() + day);
             const dateStr = date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
 
-            // Astro twilight, moonrise, moonset, and moon phase
             const astroTwilightTime = twilightData[day]?.results?.astronomical_twilight_end 
                 ? new Date(twilightData[day].results.astronomical_twilight_end) 
                 : null;
@@ -97,7 +94,6 @@ async function getForecast(useGeolocation = false) {
             const openWeatherDay = openWeatherData.list.slice(day * 8, Math.min((day + 1) * 8, openWeatherData.list.length));
             const meteosourceDay = meteosourceData?.hourly?.data?.slice(day * 24, Math.min((day + 1) * 24, meteosourceData?.hourly?.data?.length)) || [];
 
-            // Hourly averages for the day
             const hourlyTemps = openWeatherDay.map((hour, i) => {
                 const sevenTimerHour = sevenTimerDay[i] || sevenTimerDay[sevenTimerDay.length - 1];
                 const msHour = meteosourceDay[i * 3] || meteosourceDay[meteosourceDay.length - 1] || {};
@@ -122,11 +118,10 @@ async function getForecast(useGeolocation = false) {
             });
             const avgEveningCloudCover = eveningClouds.length ? eveningClouds.reduce((a, b) => a + b, 0) / eveningClouds.length : 0;
 
-            // Hourly forecast
+            // Hourly forecast (hidden by default)
             let hourlyHTML = '';
             openWeatherDay.forEach((hour, i) => {
                 const time = new Date(hour.dt * 1000);
-                // Only skip hours before current time on Day 0
                 if (day === 0 && time < currentTime) return;
 
                 const sevenTimerHour = sevenTimerDay[i] || sevenTimerDay[sevenTimerDay.length - 1];
@@ -182,7 +177,8 @@ async function getForecast(useGeolocation = false) {
                                 : 'Not available'
                         }
                     </div>
-                    ${hourlyHTML}
+                    <button class="expand-btn" onclick="toggleForecast(this)">Expand</button>
+                    <div class="hourly-forecast">${hourlyHTML}</div>
                 </div>
             `;
         }
@@ -192,6 +188,13 @@ async function getForecast(useGeolocation = false) {
         console.error('Error fetching forecast:', error);
         document.getElementById('forecast').innerHTML = `<h2>Error</h2><p>${error.message === 'Geolocation failed' ? 'Location access denied. Please enter manually.' : 'Could not fetch forecast.'}</p>`;
     }
+}
+
+// Toggle function for hourly forecast
+function toggleForecast(button) {
+    const hourlyDiv = button.nextElementSibling;
+    hourlyDiv.classList.toggle('expanded');
+    button.textContent = hourlyDiv.classList.contains('expanded') ? 'Collapse' : 'Expand';
 }
 
 // Fetch functions
