@@ -63,6 +63,7 @@ async function getForecast(useGeolocation = false) {
         ]);
 
         const sunsetHour = new Date(currentWeather.sys.sunset * 1000).getHours();
+        const currentTime = new Date(); // Current local time
 
         // Process 3-day forecast
         let forecastHTML = '';
@@ -125,7 +126,8 @@ async function getForecast(useGeolocation = false) {
             let hourlyHTML = '';
             openWeatherDay.forEach((hour, i) => {
                 const time = new Date(hour.dt * 1000);
-                if (time.getHours() < sunsetHour && day === 0) return;
+                // Only skip hours before current time on Day 0
+                if (day === 0 && time < currentTime) return;
 
                 const sevenTimerHour = sevenTimerDay[i] || sevenTimerDay[sevenTimerDay.length - 1];
                 const msHour = meteosourceDay[i * 3] || meteosourceDay[meteosourceDay.length - 1] || {};
@@ -255,7 +257,6 @@ function calculateMoonPhase(date) {
     const phase = (daysSinceJ2000 % lunarCycle) / lunarCycle;
     const adjustedPhase = phase < 0 ? phase + 1 : phase;
 
-    // Tighter thresholds aligned with 2025 lunar cycle
     if (adjustedPhase <= 0.05 || adjustedPhase > 0.95) return 'New Moon';
     if (adjustedPhase <= 0.20) return 'Waxing Crescent';
     if (adjustedPhase <= 0.30) return 'First Quarter';
