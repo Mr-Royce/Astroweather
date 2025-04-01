@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Suppress Permissions-Policy warning -->
+    <meta http-equiv="Permissions-Policy" content="interest-cohort=()">
     <title>AstroWeather</title>
     <style>
         body { font-family: Arial, sans-serif; background: #f0f2f5; margin: 0; padding: 10px; }
@@ -14,9 +16,11 @@
         .hourly-forecast { display: none; }
         .hourly-forecast.expanded { display: block; }
         .hourly { margin: 10px 0; padding-left: 10px; border-left: 2px solid #ddd; }
+        #location { padding: 5px; margin-bottom: 10px; width: 200px; }
     </style>
 </head>
 <body>
+    <input type="text" id="location" placeholder="Enter city or zip">
     <div id="forecast"></div>
     <script src="script.js"></script>
 </body>
