@@ -26,12 +26,12 @@ function getMoonTimes(date, lat, lon) {
 const locationInput = document.getElementById('location');
 if (locationInput) {
     locationInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') getForecast();
+        if (e.key === 'Enter') getForecast(false); // Manual input always uses text
     });
 }
 
-// Run forecast on page load with default location
-window.onload = () => getForecast();
+// Run forecast on page load with geolocation
+window.onload = () => getForecast(true);
 
 async function getForecast(useGeolocation = false) {
     let lat, lon, locationName;
@@ -47,7 +47,6 @@ async function getForecast(useGeolocation = false) {
                 .then(res => res.json());
             locationName = reverseGeo[0]?.name || `Lat: ${lat.toFixed(4)}, Lon: ${lon.toFixed(4)}`;
         } else {
-            // Use '10001' if input is empty or not present
             const locationValue = locationInput && locationInput.value.trim() ? locationInput.value.trim() : '10001';
             if (locationValue.includes(',')) {
                 [lat, lon] = locationValue.split(',').map(Number);
@@ -193,7 +192,11 @@ async function getForecast(useGeolocation = false) {
         document.getElementById('forecast').innerHTML = `<h2>${locationName}</h2>${forecastHTML}`;
     } catch (error) {
         console.error('Error fetching forecast:', error);
-        document.getElementById('forecast').innerHTML = `<h2>Error</h2><p>${error.message === 'Geolocation failed' ? 'Location access denied. Please enter manually.' : 'Could not fetch forecast.'}</p>`;
+        if (useGeolocation && error.message === 'Geolocation failed') {
+            // Retry without geolocation if it fails on load
+            return getForecast(false);
+        }
+        document.getElementById('forecast').innerHTML = `<h2>Error</h2><p>${error.message === 'Geolocation failed' ? 'Location access denied. Using default (New York).' : 'Could not fetch forecast.'}</p>`;
     }
 }
 
