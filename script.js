@@ -199,4 +199,117 @@ async function getForecast(useGeolocation = false) {
 // Toggle function for hourly forecast
 function toggleForecast(button) {
     const hourlyDiv = button.nextElementSibling;
-    hourly
+    hourlyDiv.classList.toggle('expanded');
+    button.textContent = hourlyDiv.classList.contains('expanded') ? 'Collapse' : 'Expand';
+}
+
+// Fetch functions
+function geocodeCity(city) {
+    return fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${city}&limit=1&appid=${OPENWEATHER_API_KEY}`)
+        .then(res => { if (!res.ok) throw new Error('Geocoding failed'); return res.json(); })
+        .then(data => ({ lat: data[0].lat, lon: data[0].lon, name: data[0].name }));
+}
+
+function geocodeZip(zip) {
+    return fetch(`https://api.openweathermap.org/geo/1.0/zip?zip=${zip},US&appid=${OPENWEATHER_API_KEY}`)
+        .then(res => { if (!res.ok) throw new Error('Zip code geocoding failed'); return res.json(); })
+        .then(data => ({ lat: data.lat, lon: data.lon, name: data.name }));
+}
+
+function fetch7Timer(lat, lon) {
+    return fetch(`https://www.7timer.info/bin/astro.php?lon=${lon}&lat=${lat}&ac=0&unit=metric&output=json`)
+        .then(res => { if (!res.ok) throw new Error('7Timer! fetch failed'); return res.json(); });
+}
+
+function fetchOpenWeatherForecast(lat, lon) {
+    return fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${OPENWEATHER_API_KEY}`)
+        .then(res => { if (!res.ok) throw new Error('OpenWeatherMap forecast fetch failed'); return res.json(); });
+}
+
+function fetchOpenWeather(lat, lon) {
+    return fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OPENWEATHER_API_KEY}`)
+        .then(res => { if (!res.ok) throw new Error('OpenWeatherMap current fetch failed'); return res.json(); });
+}
+
+function fetchSunriseSunset(lat, lon) {
+    const today = new Date();
+    const dates = [0, 1, 2].map(day => {
+        const d = new Date(today);
+        d.setDate(today.getDate() + day);
+        return d.toISOString().split('T')[0];
+    });
+    return Promise.all(dates.map(date => 
+        fetch(`https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lon}&date=${date}&formatted=0`)
+            .then(res => res.json())
+    ));
+}
+
+function fetchMeteosource(lat, lon) {
+    return fetch(`https://www.meteosource.com/api/v1/free/point?lat=${lat}&lon=${lon}&sections=current,hourly,daily&units=metric&key=${METEOSOURCE_API_KEY}`)
+        .then(res => { if (!res.ok) throw new Error('Meteosource fetch failed'); return res.json(); });
+}
+
+// Raw phase calculator for debugging
+function calculateMoonPhaseRaw(date) {
+    const J2000 = 2451545.0;
+    const daysSinceJ2000 = (date.getTime() / 86400000) + 2440587.5 - J2000;
+    const lunarCycle = 29.53058867;
+    const phase = (daysSinceJ2000 % lunarCycle) / lunarCycle;
+    return phase < 0 ? phase + 1 : phase;
+}
+
+// Moon phase calculator
+function calculateMoonPhase(date) {
+    const J2000 = 2451545.0;
+    const daysSinceJ2000 = (date.getTime() / 86400000) + 2440587.5 - J2000;
+    const lunarCycle = 29.53058867;
+    const phase = (daysSinceJ2000 % lunarCycle) / lunarCycle;
+    const adjustedPhase = phase < 0 ? phase + 1 : phase;
+
+    if (adjustedPhase <= 0.05 || adjustedPhase > 0.95) return 'New Moon';
+    if (adjustedPhase <= 0.20) return 'Waxing Crescent';
+    if (adjustedPhase <= 0.30) return 'First Quarter';
+    if (adjustedPhase <= 0.45) return 'Waxing Gibbous';
+    if (adjustedPhase <= 0.55) return 'Full Moon';
+    if (adjustedPhase <= 0.70) return 'Waning Gibbous';
+    if (adjustedPhase <= 0.80) return 'Last Quarter';
+    return 'Waning Crescent';
+}
+
+// Moon phase icons (darker, 24x24)
+function getMoonPhaseIcon(phase) {
+    const size = 'width="24" height="24"';
+    switch (phase) {
+        case 'New Moon':
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#333" stroke="#000" stroke-width="1"/></svg>`;
+        case 'Waxing Crescent':
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#333" stroke="#000" stroke-width="1"/><path d="M12 2a10 10 0 0 0 0 20c-2.5 0-4.5-2-4.5-5s2-5 4.5-5z" fill="#999"/></svg>`;
+        case 'First Quarter':
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#333" stroke="#000" stroke-width="1"/><path d="M12 2v20a10 10 0 0 0 0-20z" fill="#999"/></svg>`;
+        case 'Waxing Gibbous':
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#333" stroke="#000" stroke-width="1"/><path d="M12 2a10 10 0 0 1 0 20c2.5 0 4.5-2 4.5-5s-2-5-4.5-5z" fill="#999"/></svg>`;
+        case 'Full Moon':
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#999" stroke="#000" stroke-width="1"/></svg>`;
+        case 'Waning Gibbous':
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#333" stroke="#000" stroke-width="1"/><path d="M12 2a10 10 0 0 0 0 20c-2.5 0-4.5-2-4.5-5s2-5 4.5-5z" fill="#999"/></svg>`;
+        case 'Last Quarter':
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#333" stroke="#000" stroke-width="1"/><path d="M12 2v20a10 10 0 0 1 0-20z" fill="#999"/></svg>`;
+        case 'Waning Crescent':
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#333" stroke="#000" stroke-width="1"/><path d="M12 2a10 10 0 0 1 0 20c2.5 0 4.5-2 4.5-5s-2-5-4.5-5z" fill="#999"/></svg>`;
+        default:
+            return `<svg ${size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#666" stroke="#000" stroke-width="1"/></svg>`;
+    }
+}
+
+function mapSeeing(value) {
+    if (value < 1) return 'Excellent';
+    if (value <= 2) return 'Good';
+    if (value <= 3) return 'Average';
+    if (value <= 5) return 'Poor';
+    return 'Very Poor';
+}
+
+function mapTransparency(value) {
+    const scale = { 1: 'Excellent', 2: 'Good', 3: 'Average', 4: 'Below Avg', 5: 'Poor', 6: 'Very Poor', 7: 'Terrible' };
+    return scale[value] || 'Unknown';
+}
