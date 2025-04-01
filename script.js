@@ -47,7 +47,8 @@ async function getForecast(useGeolocation = false) {
                 .then(res => res.json());
             locationName = reverseGeo[0]?.name || `Lat: ${lat.toFixed(4)}, Lon: ${lon.toFixed(4)}`;
         } else {
-            const locationValue = locationInput ? locationInput.value : '10001';
+            // Use '10001' if input is empty or not present
+            const locationValue = locationInput && locationInput.value.trim() ? locationInput.value.trim() : '10001';
             if (locationValue.includes(',')) {
                 [lat, lon] = locationValue.split(',').map(Number);
                 const reverseGeo = await fetch(`https://api.openweathermap.org/geo/1.0/reverse?lat=${lat}&lon=${lon}&limit=1&appid=${OPENWEATHER_API_KEY}`)
